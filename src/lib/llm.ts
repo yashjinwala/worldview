@@ -3,6 +3,8 @@
 // queues (mockStore) and never touches the Anthropic SDK. Cost is applied after
 // every response — under mock too — so the cost tests exercise real accounting.
 
+import type { ZodType } from 'zod/v4'
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { prisma } from './prisma'
 import { logEvent } from './events'
 import { costOf, UsageTokens } from './pricing'
@@ -15,6 +17,14 @@ import {
   GeneratorMapOutput,
   DEFAULT_USER_MODEL,
 } from './types'
+import {
+  ReaderSchema,
+  GeneratorMapSchema,
+  ProfilerSchema,
+  SafetySchema,
+  SharpenSchema,
+} from './llmSchemas'
+import { GEN_SCHEMAS } from '@/templates/genSchemas'
 import {
   TUTOR_ANCHOR,
   DIRECTOR_SYSTEM,
@@ -39,7 +49,7 @@ export class MockQueueEmptyError extends Error {
 }
 
 const TUTOR_MODEL = process.env.TUTOR_MODEL ?? 'claude-sonnet-4-6'
-const HAIKU_MODEL = process.env.HAIKU_MODEL ?? 'claude-haiku-4-5-20251001'
+const HAIKU_MODEL = process.env.HAIKU_MODEL ?? 'claude-haiku-4-5'
 
 async function applyCost(ctx: LlmCtx, sonnet: boolean, usage: UsageTokens | undefined) {
   if (!ctx.sessionId || !usage) return
@@ -65,30 +75,38 @@ async function realClient() {
   return _client
 }
 
-/** Real-mode helper: ask Haiku for strict JSON, parse, with one retry. */
-async function realHaikuJSON<T>(ctx: LlmCtx, system: string, user: string): Promise<T> {
+/**
+ * Real-mode structured Haiku call (TDD §7): messages.parse + zodOutputFormat enforces
+ * the schema; parsed_output is the validated object (or null on failure). One retry per
+ * G-16, then throw — the caller decides critical (throw) vs non-critical (safe default).
+ */
+async function realHaikuParse<T>(
+  ctx: LlmCtx,
+  system: string,
+  user: string,
+  schema: ZodType<T>,
+  maxTokens = 2048
+): Promise<T> {
   const client = (await realClient()) as {
-    messages: { create: (args: unknown) => Promise<{ content: Array<{ type: string; text?: string }>; usage: UsageTokens }> }
+    messages: { parse: (args: unknown) => Promise<{ parsed_output: T | null; usage: UsageTokens }> }
   }
+  let lastErr: unknown
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await client.messages.create({
-      model: HAIKU_MODEL,
-      max_tokens: 2048,
-      system: system + '\n\nRespond with ONLY a single JSON object, no prose, no code fence.',
-      messages: [{ role: 'user', content: user }],
-    })
-    await applyCost(ctx, false, res.usage)
-    const text = res.content.find((b) => b.type === 'text')?.text ?? ''
-    const match = text.match(/\{[\s\S]*\}/)
-    if (match) {
-      try {
-        return JSON.parse(match[0]) as T
-      } catch {
-        /* retry once */
-      }
+    try {
+      const res = await client.messages.parse({
+        model: HAIKU_MODEL,
+        max_tokens: maxTokens,
+        system,
+        messages: [{ role: 'user', content: user }],
+        output_config: { format: zodOutputFormat(schema) },
+      })
+      await applyCost(ctx, false, res.usage)
+      if (res.parsed_output != null) return res.parsed_output
+    } catch (e) {
+      lastErr = e
     }
   }
-  throw new Error('haiku JSON parse failed after retry')
+  throw lastErr ?? new Error('structured parse failed after retry')
 }
 
 // ── sharpen ────────────────────────────────────────────────────────────────
@@ -99,17 +117,12 @@ export async function sharpen(ctx: LlmCtx, rawQuestion: string): Promise<string>
     await applyCost(ctx, false, resp.usage)
     return resp.sharpened
   }
-  const client = (await realClient()) as {
-    messages: { create: (a: unknown) => Promise<{ content: Array<{ type: string; text?: string }>; usage: UsageTokens }> }
+  try {
+    const out = await realHaikuParse(ctx, SHARPEN_SYSTEM, rawQuestion, SharpenSchema, 256)
+    return out.sharpened.trim() || rawQuestion
+  } catch {
+    return rawQuestion // sharpening is non-critical; fall back to the raw question
   }
-  const res = await client.messages.create({
-    model: HAIKU_MODEL,
-    max_tokens: 256,
-    system: SHARPEN_SYSTEM,
-    messages: [{ role: 'user', content: rawQuestion }],
-  })
-  await applyCost(ctx, false, res.usage)
-  return (res.content.find((b) => b.type === 'text')?.text ?? rawQuestion).trim()
 }
 
 // ── reader (critical: throws when mock queue empty) ─────────────────────────
@@ -120,7 +133,7 @@ export async function reader(ctx: LlmCtx, input: unknown): Promise<ReaderOutput>
     await applyCost(ctx, false, resp.usage)
     return resp.parsed
   }
-  return realHaikuJSON<ReaderOutput>(ctx, READER_SYSTEM, JSON.stringify(input))
+  return realHaikuParse(ctx, READER_SYSTEM, JSON.stringify(input), ReaderSchema)
 }
 
 // ── director (critical) ─────────────────────────────────────────────────────
@@ -222,7 +235,7 @@ export async function generatorMap(
     return resp.parsed
   }
   const system = seed ? GENERATOR_MAP_SEED_SYSTEM : GENERATOR_MAP_SYSTEM
-  return realHaikuJSON<GeneratorMapOutput>(ctx, system, JSON.stringify(input))
+  return realHaikuParse(ctx, system, JSON.stringify(input), GeneratorMapSchema)
 }
 
 // ── generator-artifact (non-critical: empty → null) ─────────────────────────
@@ -237,7 +250,16 @@ export async function generatorArtifact(ctx: LlmCtx, input: unknown): Promise<ob
     await applyCost(ctx, false, resp.usage)
     return resp.parsed
   }
-  return realHaikuJSON<object>(ctx, GENERATOR_ARTIFACT_SYSTEM, JSON.stringify(input))
+  // Real mode: the template's own Zod schema enforces the prop shape (and is re-validated
+  // server-side + client-side). Non-critical: any failure drops the artifact (→ null).
+  const templateId = (input as { templateId?: string }).templateId
+  const schema = templateId ? GEN_SCHEMAS[templateId] : undefined
+  if (!schema) return null
+  try {
+    return (await realHaikuParse(ctx, GENERATOR_ARTIFACT_SYSTEM, JSON.stringify(input), schema)) as object
+  } catch {
+    return null
+  }
 }
 
 // ── profiler (non-critical: empty → minimal) ────────────────────────────────
@@ -254,7 +276,7 @@ export async function profiler(ctx: LlmCtx, input: unknown): Promise<ProfilerOut
     await applyCost(ctx, false, resp.usage)
     return resp.parsed
   }
-  return realHaikuJSON<ProfilerOutput>(ctx, PROFILER_SYSTEM, JSON.stringify(input))
+  return realHaikuParse(ctx, PROFILER_SYSTEM, JSON.stringify(input), ProfilerSchema)
 }
 
 // ── safety (non-critical: empty → no flag) ──────────────────────────────────
@@ -265,7 +287,11 @@ export async function safety(ctx: LlmCtx, input: unknown): Promise<SafetyOutput>
     await applyCost(ctx, false, resp.usage)
     return resp.parsed
   }
-  return realHaikuJSON<SafetyOutput>(ctx, SAFETY_SYSTEM, JSON.stringify(input))
+  try {
+    return await realHaikuParse<SafetyOutput>(ctx, SAFETY_SYSTEM, JSON.stringify(input), SafetySchema)
+  } catch {
+    return { flag: false, category: null, note: null } // safety is fail-open (§11)
+  }
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────

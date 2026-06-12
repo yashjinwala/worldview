@@ -7,14 +7,14 @@ import Onboarding from '@/components/Onboarding'
 import Shelf from '@/components/Shelf'
 import Session from '@/components/Session'
 import MobileGate from '@/components/MobileGate'
-import { getUserId, fetchMaps, endSession, isPhoneViewport } from '@/lib/client'
+import { getUserId, fetchMaps, endSession, isPhoneViewport, getActiveSession, setActiveSession } from '@/lib/client'
 
 type View =
   | { name: 'loading' }
   | { name: 'gate' }
   | { name: 'shelf' }
   | { name: 'onboarding' }
-  | { name: 'session'; mapId: string; sessionId: string; kickoff: { message: string; viaShelf: boolean } }
+  | { name: 'session'; mapId: string; sessionId: string; kickoff: { message: string; viaShelf: boolean } | null }
 
 export default function Home() {
   const [userId, setUserId] = useState('')
@@ -34,6 +34,13 @@ export default function Home() {
   const boot = async (id: string) => {
     try {
       const data = await fetchMaps(id)
+      // Resume the active conversation on reload (don't bounce to the shelf and forget it).
+      const active = getActiveSession()
+      if (active && data.maps.some((m: { mapId: string }) => m.mapId === active.mapId)) {
+        setView({ name: 'session', mapId: active.mapId, sessionId: active.sessionId, kickoff: null })
+        return
+      }
+      if (active) setActiveSession(null)
       setView(data.maps.length > 0 ? { name: 'shelf' } : { name: 'onboarding' })
     } catch {
       setView({ name: 'onboarding' })

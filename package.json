@@ -15,7 +15,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
+    "@anthropic-ai/sdk": "^0.104.1",
     "@prisma/client": "^6.3.1",
     "@xyflow/react": "^12.4.2",
     "dagre": "^0.8.5",

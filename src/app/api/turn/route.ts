@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 // POST /api/turn — SSE stream of one turn (§4/§5). One pipeline in flight per session.
 export async function POST(req: NextRequest) {
-  let body: { sessionId?: string; message?: string; viaShelf?: boolean; viaNodeClick?: boolean }
+  let body: { sessionId?: string; message?: string; viaShelf?: boolean; viaNodeClick?: boolean; deviceClass?: string }
   try {
     body = await req.json()
   } catch {
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   let resolved
   try {
-    resolved = await resolveSession(body.sessionId, body.viaShelf)
+    resolved = await resolveSession(body.sessionId, body.viaShelf, body.deviceClass)
   } catch (e) {
     if (e instanceof TurnError) return NextResponse.json({ error: e.message }, { status: e.status })
     return NextResponse.json({ error: String(e) }, { status: 500 })

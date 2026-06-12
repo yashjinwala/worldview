@@ -9,7 +9,7 @@ const POSTURES: Posture[] = ['understand', 'challenge', 'deep-dive', 'surprise-m
 // POST /api/onboard — sharpens the question, creates map + session + root node/loop,
 // kicks off seed generation (§4).
 export async function POST(req: NextRequest) {
-  let body: { userId?: string; posture?: string; rawQuestion?: string; startingPosition?: string }
+  let body: { userId?: string; posture?: string; rawQuestion?: string; startingPosition?: string; deviceClass?: string }
   try {
     body = await req.json()
   } catch {
@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     posture: body.posture as Posture,
     rawQuestion: body.rawQuestion,
     startingPosition: body.startingPosition,
+    deviceClass: body.deviceClass,
   })
   return NextResponse.json(result)
 }

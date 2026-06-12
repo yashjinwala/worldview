@@ -3,6 +3,7 @@
 // small fetch wrappers the UI uses. Identity is a localStorage userId (no accounts).
 
 export const USER_KEY = 'worldview_user_id'
+export const ACTIVE_KEY = 'worldview_active_session'
 
 export function getUserId(): string {
   if (typeof window === 'undefined') return ''
@@ -16,6 +17,30 @@ export function getUserId(): string {
 
 export function setUserId(id: string) {
   localStorage.setItem(USER_KEY, id)
+}
+
+// Device class buckets (kill-test device logging, PRD §10).
+export function deviceClass(): string {
+  if (typeof window === 'undefined') return 'unknown'
+  const w = window.innerWidth
+  return w < 760 ? 'phone' : w < 1024 ? 'tablet' : 'desktop'
+}
+
+// The active session marker — lets a page reload resume the same conversation rather
+// than bouncing to the shelf and forgetting the chat.
+export function setActiveSession(v: { mapId: string; sessionId: string } | null) {
+  if (typeof window === 'undefined') return
+  if (v) localStorage.setItem(ACTIVE_KEY, JSON.stringify(v))
+  else localStorage.removeItem(ACTIVE_KEY)
+}
+export function getActiveSession(): { mapId: string; sessionId: string } | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(ACTIVE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
 }
 
 export interface OnboardResult {
@@ -33,7 +58,7 @@ export async function onboard(body: {
   const res = await fetch('/api/onboard', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, deviceClass: deviceClass() }),
   })
   if (!res.ok) throw new Error(`onboard ${res.status}`)
   return res.json()
@@ -53,7 +78,7 @@ export async function streamTurn(
   const res = await fetch('/api/turn', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, deviceClass: deviceClass() }),
     signal: handlers.signal,
   })
   if (!res.ok || !res.body) {

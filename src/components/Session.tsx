@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import MapPane, { WvNode } from './MapPane'
 import ConductorPane, { ConductorRow } from './ConductorPane'
 import { ArtifactCard } from '@/templates'
-import { streamTurn, endSession, endSessionBeacon, fetchMap, softCloseLoop, disputeReader } from '@/lib/client'
+import { streamTurn, endSession, endSessionBeacon, fetchMap, softCloseLoop, disputeReader, setActiveSession } from '@/lib/client'
 
 type FeedItem =
   | { kind: 'user'; id: string; text: string }
@@ -174,15 +174,69 @@ export default function Session({
     [busy, costLocked, runTurn]
   )
 
-  // Mount: load the map, then fire the kickoff turn once.
+  // Mount: load the map, rehydrate the recent conversation so a reload doesn't read as
+  // "the product forgot me" (§4 disconnect path), then fire the kickoff turn once.
   useEffect(() => {
-    void loadSnapshot()
-    if (!startedRef.current && kickoff) {
-      startedRef.current = true
-      void runTurn(kickoff.message, { viaShelf: kickoff.viaShelf, renderUser: true })
+    let cancelled = false
+    void (async () => {
+      const snap = await fetchMap(mapId).catch(() => null)
+      if (!cancelled && snap) {
+        setHeldQuestion(snap.map.heldQuestion)
+        upsertNodes(snap.nodes)
+        setView({
+          currentView: snap.map.currentView,
+          startingPosition: snap.map.startingPosition,
+          snapshots: snap.viewSnapshots ?? [],
+          asOf: snap.viewSnapshots?.[0]?.createdAt ?? null,
+        })
+        setCost(snap.latestSessionCost ?? 0)
+        const recent = (snap.recentMessages ?? []) as Array<{ role: string; content: string }>
+        if (recent.length) {
+          let t = 0
+          const items: FeedItem[] = recent.map((m) =>
+            m.role === 'assistant'
+              ? { kind: 'guide', id: nid(), text: m.content, turn: ++t, streaming: false }
+              : { kind: 'user', id: nid(), text: m.content }
+          )
+          for (const a of (snap.artifacts ?? []) as Array<{ id: string; templateId: string; props: Record<string, unknown> }>) {
+            items.push({ kind: 'artifact', id: a.id, templateId: a.templateId, props: a.props })
+          }
+          setFeed(items)
+          const decisions = (snap.recentDecisions ?? []) as Array<{
+            id: string
+            turn: number
+            signals: ConductorRow['signals']
+            tools: ConductorRow['tools']
+            rationale: string
+          }>
+          setRows(
+            decisions.map((d) => ({
+              turn: d.turn,
+              decisionId: d.id,
+              signals: d.signals,
+              tools: d.tools,
+              rationale: d.rationale,
+            }))
+          )
+          // Pure resume (no kickoff) → adopt the latest session as the working one.
+          if (!kickoff && snap.latestSessionId) setSession(snap.latestSessionId)
+        }
+      }
+      if (!cancelled && !startedRef.current && kickoff) {
+        startedRef.current = true
+        void runTurn(kickoff.message, { viaShelf: kickoff.viaShelf, renderUser: true })
+      }
+    })()
+    return () => {
+      cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Keep the active-session marker fresh so a page reload resumes here.
+  useEffect(() => {
+    setActiveSession({ mapId, sessionId })
+  }, [mapId, sessionId])
 
   // Persist on tab close (beacon).
   useEffect(() => {
@@ -233,7 +287,7 @@ export default function Session({
   return (
     <>
       <div className="wv-header">
-        <button className="wv-logo" onClick={onExit}>Worldview</button>
+        <button className="wv-logo" onClick={() => { setActiveSession(null); onExit() }}>Worldview</button>
         <div className="wv-hdiv" />
         <span className="wv-session-title">{heldQuestion}</span>
         {view.currentView && (

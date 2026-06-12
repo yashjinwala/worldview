@@ -78,6 +78,7 @@ export interface OnboardInput {
   posture: Posture
   rawQuestion?: string
   startingPosition?: string
+  deviceClass?: string
 }
 
 export async function onboard(input: OnboardInput) {
@@ -97,7 +98,8 @@ export async function onboard(input: OnboardInput) {
     },
   })
   const session = await prisma.session.create({ data: { userId, mapId: map.id } })
-  await logEvent(session.id, 'session_start', { posture, kind: 'onboard' })
+  // deviceClass logged so the desktop-only kill-test interpretation is measurable (PRD §10).
+  await logEvent(session.id, 'session_start', { posture, kind: 'onboard', deviceClass: input.deviceClass ?? null })
 
   // Sharpen (skipped for surprise-me, which uses the hardcoded rotation — §9).
   let sharpenedQuestion: string
@@ -190,13 +192,17 @@ export class TurnError extends Error {
   }
 }
 
-export async function resolveSession(incomingSessionId: string, viaShelf?: boolean): Promise<ResolvedTurn> {
+export async function resolveSession(
+  incomingSessionId: string,
+  viaShelf?: boolean,
+  deviceClass?: string
+): Promise<ResolvedTurn> {
   const session = await prisma.session.findUnique({ where: { id: incomingSessionId } })
   if (!session) throw new TurnError(404, 'session not found')
 
   if (session.endedAt) {
     // Resuming an ended session = a return (shelf by default). Profiler already ran.
-    const next = await createReturnSession(session, viaShelf ?? true)
+    const next = await createReturnSession(session, viaShelf ?? true, deviceClass)
     return { session: next, isReturnTurn1: true, viaShelf: viaShelf ?? true }
   }
 
@@ -209,7 +215,7 @@ export async function resolveSession(incomingSessionId: string, viaShelf?: boole
     // Idle close: run step 8 on the old session, then a return session. Typed-after-idle
     // is NOT a shelf return (G-17): viaShelf=false.
     await endSessionPipeline(session.id)
-    const next = await createReturnSession(session, false)
+    const next = await createReturnSession(session, false, deviceClass)
     return { session: next, isReturnTurn1: true, viaShelf: false }
   }
 
@@ -218,7 +224,8 @@ export async function resolveSession(incomingSessionId: string, viaShelf?: boole
 
 async function createReturnSession(
   old: { id: string; mapId: string; userId: string; synthesisFired: boolean; synthesisCaptured: boolean },
-  viaShelf: boolean
+  viaShelf: boolean,
+  deviceClass?: string
 ) {
   const map = await prisma.map.findUnique({ where: { id: old.mapId } })
   if (!map) throw new TurnError(404, 'map not found')
@@ -230,7 +237,7 @@ async function createReturnSession(
   const next = await prisma.session.create({
     data: { userId: old.userId, mapId: old.mapId, isReturn: true, viaShelf, synthesisFired: inheritSynthesis },
   })
-  await logEvent(next.id, 'session_start', { kind: 'return', viaShelf })
+  await logEvent(next.id, 'session_start', { kind: 'return', viaShelf, deviceClass: deviceClass ?? null })
 
   // Inject the <resume> block as the first (user-role) message of the new session (§5).
   const openLoops = await prisma.loop.findMany({
@@ -1021,11 +1028,45 @@ export async function softClose(loopId: string, sessionId: string): Promise<{ ok
 export async function buildMapSnapshot(mapId: string) {
   const map = await prisma.map.findUnique({ where: { id: mapId } })
   if (!map) return null
-  const [nodes, loops, artifacts, viewSnapshots] = await Promise.all([
+  const [nodes, loops, artifacts, viewSnapshots, latestSession] = await Promise.all([
     buildMapNodePayloads(mapId),
     prisma.loop.findMany({ where: { mapId } }),
     prisma.artifact.findMany({ where: { node: { mapId } }, orderBy: { createdAt: 'asc' } }),
     prisma.viewSnapshot.findMany({ where: { mapId }, orderBy: { createdAt: 'desc' } }),
+    prisma.session.findFirst({ where: { mapId }, orderBy: { startedAt: 'desc' } }),
   ])
-  return { map, nodes, loops, artifacts, viewSnapshots }
+
+  // Recent chat + decisions of the latest session, so the client can rehydrate the
+  // conversation on reload (§4 disconnect path: re-fetch map + recent messages).
+  let recentMessages: Array<{ role: string; content: string }> = []
+  let recentDecisions: Array<{ id: string; turn: number; signals: unknown; tools: unknown; rationale: string }> = []
+  if (latestSession) {
+    const [msgs, decisions] = await Promise.all([
+      prisma.message.findMany({
+        where: { sessionId: latestSession.id, NOT: { content: { startsWith: '<resume>' } } },
+        orderBy: { createdAt: 'asc' },
+        select: { role: true, content: true },
+      }),
+      prisma.directorDecision.findMany({
+        where: { sessionId: latestSession.id },
+        orderBy: { turn: 'asc' },
+        select: { id: true, turn: true, signals: true, tools: true, rationale: true },
+      }),
+    ])
+    recentMessages = msgs
+    recentDecisions = decisions
+  }
+
+  return {
+    map,
+    nodes,
+    loops,
+    artifacts,
+    viewSnapshots,
+    latestSessionId: latestSession?.id ?? null,
+    latestSessionCost: latestSession?.costUsd ?? 0,
+    latestSessionEnded: !!latestSession?.endedAt,
+    recentMessages,
+    recentDecisions,
+  }
 }

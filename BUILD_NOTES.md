@@ -63,13 +63,17 @@ All additive, so the frozen schema-shaped assertions still hold:
   user message; an edited sharpen-confirm retitles via `POST /api/map/[mapId]` so "the user's
   final text is what's stored" (§4). Shelf return sends a short "I'm back…" kickoff with
   `viaShelf:true`.
-- **Chat history is not reloaded on resume.** The map is the durable surface ("your
-  understanding persists as a map"); `/api/map/[mapId]` rehydrates nodes/loops/artifacts/view,
-  and the welcome-back beat re-hooks. §4 defines no messages-refetch endpoint, so a mid-session
-  reload starts the chat fresh while the map persists. (Server keeps full history regardless.)
-- **`mobile_gate` Event** is deferred: the gate UI + continue-anyway is present and the choice
-  is stored in `sessionStorage`, but there is no Session row to attach an Event to before
-  onboarding. The kill test is desktop-only by protocol regardless (PRD §10).
+- **Chat rehydrates on reload.** `GET /api/map/[mapId]` carries `recentMessages` +
+  `recentDecisions` + the latest session's cost (the "recent messages" the §4 disconnect
+  paragraph refers to — a fetch the spec's route table never defined, a gap closed here). An
+  active-session marker in `localStorage` resumes the same conversation on reload instead of
+  bouncing to the shelf, and the client rebuilds the chat feed + Conductor rows from the
+  snapshot. The map remains the durable surface; the chat now comes back with it.
+- **Device logging for the kill test.** The client sends a viewport-bucket `deviceClass`
+  (`phone`/`tablet`/`desktop`) on onboard and turn; the server records it in the
+  `session_start` Event payload — so the desktop-only interpretation of the return metric is
+  measurable (PRD §10), sidestepping the no-session-yet problem the gate alone had. The phone
+  gate UI + continue-anyway still renders.
 - **CSS primitive re-assertion.** `design/tokens.css` wires its primitives into Tailwind v4
   via `@theme inline { --x: var(--x) }`. On routes that also load React Flow's stylesheet, the
   self-referential declaration can win the cascade and make `var(--color-*)` resolve circular
@@ -83,13 +87,20 @@ The hard gate is mock-mode; these only matter for `npm run dev` with a real key 
 end-to-end during the build — streaming, seeding, prompt-cache, live artifact spawn):
 
 - **Models:** Tutor `claude-sonnet-4-6` (Opus 4.8 behind `TUTOR_MODEL`); aux roles
-  `claude-haiku-4-5-20251001` (`HAIKU_MODEL`). Pricing constants per §13.
-- **Structured outputs.** The pinned `@anthropic-ai/sdk@0.39` does not ship
-  `@anthropic-ai/sdk/helpers/zod` (`zodOutputFormat`), so the Haiku structured roles use a
-  strict-JSON instruction + parse + one retry (G-16) rather than `output_config.format`. Each
-  generator-artifact call is handed an explicit per-template prop spec (`src/templates/promptSpecs.ts`)
-  so it fills schema-valid props on the first attempt; props are still Zod-validated server-
-  side and re-validated on the client at `artifact_ready` (§10).
+  `claude-haiku-4-5` (`HAIKU_MODEL`). Pricing constants per §13.
+- **Structured outputs (the spec'd path).** The Haiku structured roles (Reader, Generator-map,
+  Generator-artifact, Profiler, Safety, Sharpen) use `client.messages.parse({ output_config:
+  { format: zodOutputFormat(schema) } })` and read `parsed_output`, exactly as TDD §7
+  adjudicated — schema-enforced, not prompt-obedient. One retry on a null/failed parse (G-16),
+  then critical roles throw and non-critical roles fall back. `@anthropic-ai/sdk` is upgraded to
+  `0.104` for the helper. Because the SDK's `zodOutputFormat` runs zod v4's `toJSONSchema`, the
+  structured-output schemas are authored against zod's `zod/v4` subpath (`src/lib/llmSchemas.ts`,
+  `src/templates/genSchemas.ts`); the **frozen-tested template schemas stay on the zod v3 API**
+  (`src/templates/schemas.ts`) and remain the authoritative gate — every generated artifact is
+  re-validated against them server-side and on the client at `artifact_ready` (§10). The
+  per-template prop spec (`src/templates/promptSpecs.ts`) is still passed to guide the model
+  toward the cross-field invariants. Verified live: Reader/Generator/artifact all produce
+  schema-valid output (a slider-sim with the sorted-ascending + last==max invariant satisfied).
 - **Tutor caching.** The anchor (`TUTOR_ANCHOR`, padded past 2,048 tokens with mode exemplars)
   carries `cache_control` on its single system block; a `tutor_usage` Event logs
   `cache_read_input_tokens` per turn. Measured live: turn-2 `cache_read_input_tokens = 2408`.
@@ -100,5 +111,4 @@ end-to-end during the build — streaming, seeding, prompt-cache, live artifact 
 
 - Surprise-me uses **round-robin only**; the session-3+ interest-matching pick (G-08) falls back
   to round-robin, which keeps surprise-me from ever invoking the `sharpen` role.
-- The disconnect/reconnect message-refetch (§4) is partial (map re-fetched, chat not).
 - `v1.5` grounding (orchestrated web search) and the 14 phase-2 templates are out of v1 scope.
