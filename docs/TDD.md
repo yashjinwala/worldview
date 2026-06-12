@@ -1,11 +1,12 @@
 # Worldview v2 — Technical Design Document (TDD)
 
-**Version:** 0.7
-**Date:** 2026-06-11
+**Version:** 0.8
+**Date:** 2026-06-12
 **Status:** Locked for v1 build — this document plus `PRD.md` is the complete spec for a one-shot implementation
 **Companion doc:** `PRD.md` (product rationale, worked example, scope cut)
 
 ### Decision log (most recent first)
+- **Pre-build review resolutions (2026-06-12; v0.8).** Product rationale in the PRD log; contract changes here, all **additive against the frozen test suite**: synthesis beat de-gated from posture **and de-thresholded** — timing is Director judgment, once-per-session hard-enforced (§7.2); non-challenge maps pull a *before* via a turn-1 gut-check + Reader `inferredPosition` (G-23) — the positionShift gate keys on startingPosition presence, not posture; the §7.7 check extended over artifact props (G-22), `safety_note` gains `artifactId`; unsourced artifacts render a standing provenance caption (§10 common fields); Conductor rows gain a 👍/👎 → `reader_disputed` Event (§9, §12); the cost lock gains a "Start a fresh session" affordance (G-18), resolving §9's "input is never disabled" contradiction with §13; `GLOBAL_DAILY_LIMIT_USD` global cap (G-19); TTFT budget + `ttft` Event, mitigation pre-committed but not pre-built (G-20); `Loop.openedBy` + organic-chains readout with `loopsChained` untouched (G-21); typed-message-after-idle turn-1 semantics + `viaShelf` boolean (G-17); phone viewports get the desktop-only gate note (§9); the `predict-reveal` and `threshold-hunt` examples replaced — each violated the duty of care inside our own spec (a contested question presented as having one right answer; an overturned finding presented as a fact). All 73 frozen tests remain valid; every new behavior lands as an addition.
 - **Test-first suite + contract clarifications (2026-06-11).** An independent agent (which never sees the implementation) wrote 73 spec-derived contract tests in `tests/` — red by design until built; the implementer must make them pass and may never modify them (§16 item 17). Its mock seam (`LLM_MODE=mock`, one LLM-call module, per-role FIFO control endpoints) is now a build requirement (§18). The 16 ambiguities it logged in `tests/GAPS.md` are answered in §17.
 - **Final-gate fixes (2026-06-11, review #2: 8 technical P0s, 12 P1s — all fixed in place).** Highlights: `<resume>` = a user-role message, first in the session's history (cache-safe); synthesis capture moved into the Reader (`synthesisPending` in, `synthesisAnswer` out — deflections write nothing) gated by `Session.lastDirectiveSynthesis`; in-memory `loopsClosedThisSession` counter; `loopsChained` has §6.4 as its only definition; cost-ceiling wrap-up is a turn-start branch (skip Reader/Director, hardcoded directive, `Session.costLocked`); `pendingSeedJobs` module registry; turn-1/off-map tool stripping enforced in code; outcome-backfill query pinned; editable sharpen-confirm; Profiler-failure fallback for `resumeSummary`. **Adjudication:** the reviewer flagged `output_config.format` as wrong SDK syntax — verified against current API docs: it is the canonical GA parameter; exact `messages.parse` + `zodOutputFormat` snippet added to §7 to prevent re-litigation. Product P0s fixed: articulation contract told to the user once; view-history UI; map overview + stale-glow decay + soft-close; shelf-as-hook + visible user model + export/import; synthesis question now references the prior view.
 - **Completeness batch (2026-06-11, post-rebrand).** Return experience specified: Profiler writes `Map.resumeSummary`; return-session turn 1 = welcome-back re-hook of the brightest open loop; map-shelf home screen (§9). View ledger: `Map.currentView` + dated `ViewSnapshot` rows, captured in code when the synthesis reply lands; "Where you stand" renders on the map header. Three contract fixes from re-audit: the Director payload gains **map context** `{posture, startingPosition?, currentView?, loopsClosedThisSession, synthesisFiredThisSession}`; the Reader input gains `startingPosition`; `Session.synthesisFired` flag added. Packaging locked: git + MIT + README evidence assets (§16). **Final gate = a fresh adversarial review of the completed docs.**
@@ -78,7 +79,7 @@ SERVER (same Next.js process)
 | `/api/maps?userId=` | GET | List of the user's maps (return visits, cross-topic). |
 | `/api/session/end` | POST | Explicit end (also fired via `navigator.sendBeacon` on tab close). Triggers Profiler + metrics rollup. Idle timeout (30 min) is enforced lazily on next request. |
 
-**SSE event types on `/api/turn`:** `director_decision {signals, tools, rationale}` (feeds Conductor pane, sent before text) · `tutor_delta {text}` · `loop_state {proximityToClose, justClosed, nodeId}` · `map_update {nodes[]}` (each node carries `hasOpenLoop: boolean`; the client **upserts by `id`** into React Flow state, so full snapshots and deltas are idempotent) · `artifact_ready {artifact}` · `safety_note {text}` (rare, post-hoc) · `cost {sessionTotalUsd}` · `done`.
+**SSE event types on `/api/turn`:** `director_decision {signals, tools, rationale}` (feeds Conductor pane, sent before text) · `tutor_delta {text}` · `loop_state {proximityToClose, justClosed, nodeId}` · `map_update {nodes[]}` (each node carries `hasOpenLoop: boolean`; the client **upserts by `id`** into React Flow state, so full snapshots and deltas are idempotent) · `artifact_ready {artifact}` · `safety_note {text, artifactId?}` (rare, post-hoc; `artifactId` set when the note audits an artifact's numbers — G-22) · `cost {sessionTotalUsd}` · `done`.
 
 **Disconnect/reconnect:** SSE has no resume. On stream error the client keeps any partial Tutor text, re-fetches `GET /api/map/[mapId]` and the recent messages, and re-enables input. The server pipeline runs to completion regardless — all state is persisted server-side, so nothing is lost but the live render.
 
@@ -86,18 +87,18 @@ SERVER (same Next.js process)
 
 A per-session in-process lock guarantees **one pipeline in flight at a time** — but the lock covers only steps 1–6 (through the end of the Tutor stream and its state writes). Generator jobs (step 7) are **append-only and run detached from the lock**: a fast next message never waits on map/artifact generation; any `map_update`/`artifact_ready` still pending when this turn's stream closes is delivered to the **latest open SSE connection for the session** (a per-session "current writer" reference, swapped when a new turn's stream opens) or, failing that, picked up by the next map snapshot.
 
-1. **Ingest.** Record a `reply_latency` Event (ms since the previous Tutor message's `createdAt`). Append the user message. **Idle = time since the last *user* message:** if >30 min, close the old session (step 8 runs first) and start a new one on the same map — the new session inherits `synthesisFired = true` when the old one fired synthesis without capturing an answer (never re-ask an unanswered question). **Turn number** = count of user messages in this session. **Seed-await:** from turn 2 on, if onboarding's seed job hasn't resolved — checked via the module-level `pendingSeedJobs: Map<mapId, Promise<void>>` registry written by `/api/onboard` — await it here.
-2. **Reader** (Haiku, skipped on turn 1): input = last Tutor message + new user message + the **loop ledger as `{loopId, nodeId, question, proximity}` tuples** + the map's non-settled nodes as `{nodeId, title, status}` + the map's `startingPosition` (when set) + `synthesisPending: boolean` (from `Session.lastDirectiveSynthesis`) + computed stats (reply latency vs. this user's baseline, message-length trend). Output (structured, §7.3): `{appetite, proximityToClose, justClosed, closedLoopId?, conversationNodeId, positionShift?, synthesisAnswer?, evidence}`. The Reader owns the conversation-position read — `conversationNodeId` says which node the exchange is actually about (§6.4).
-3. **Apply the read (code, not LLM):** if `conversationNodeId` ≠ current node → run the node-transition rules (§6.4), which may create a new Loop. If `justClosed` → set `Loop.closedAt` on `closedLoopId` (`closedBy: "reader"`), settle its node, **increment the in-memory `loopsClosedThisSession` counter**, write `positionShift` onto that Loop, and backfill `outcome` on **the most recent `DirectorDecision` of this session where `outcome IS NULL` and `turn < currentTurn`**. If `synthesisAnswer` is non-null → write it to `Map.currentView` + a dated `ViewSnapshot` row. Either way, when `synthesisPending` was true, clear `Session.lastDirectiveSynthesis` (a deflected synthesis question is not re-armed). Write `proximityToClose` to the active Loop's `proximity` and stamp `Loop.lastTouchedAt`.
-4. **Director** (Haiku): input = Reader output + `currentNodeId` + loop ledger (with IDs) + **map context `{posture, startingPosition?, currentView?, loopsClosedThisSession, synthesisFiredThisSession, latestArtifactOpensHook?}`** + user model + running `costUsd` + last 2 exchanges. On turn 1 of any session the Reader fields are passed explicitly as `{appetite: null, proximityToClose: null, justClosed: false}` plus `isColdStart` / `isReturnTurn1` booleans. `tool_choice: "auto"`; code validates the output — if `setTutorMode` is missing, default `setTutorMode("explain")` and log a warning; cap at 2 calls; **code also strips `expandMap`/`spawnArtifact` on turn 1 and on off-map turns** (enforcement, not just prompt). Persist to `director_decisions` **including the rendered directive string**; emit `director_decision` SSE event.
+1. **Ingest.** Record a `reply_latency` Event (ms since the previous Tutor message's `createdAt`). Append the user message. **Idle = time since the last *user* message:** if >30 min, close the old session (step 8 runs first) and start a new one on the same map — the new session inherits `synthesisFired = true` when the old one fired synthesis without capturing an answer (never re-ask an unanswered question). **A typed message that triggers the idle-close is not a shelf return (G-17):** the new session still opens with the `<resume>` block, but the Director default becomes `setTutorMode("explain", note: "they just said something — answer it directly; no welcome-back beat")`; the welcome-back re-hook is shelf-only. **Turn number** = count of user messages in this session. **Seed-await:** from turn 2 on, if onboarding's seed job hasn't resolved — checked via the module-level `pendingSeedJobs: Map<mapId, Promise<void>>` registry written by `/api/onboard` — await it here.
+2. **Reader** (Haiku, skipped on turn 1): input = last Tutor message + new user message + the **loop ledger as `{loopId, nodeId, question, proximity}` tuples** + the map's non-settled nodes as `{nodeId, title, status}` + the map's `startingPosition` (when set) + `synthesisPending: boolean` (from `Session.lastDirectiveSynthesis`) + computed stats (reply latency vs. this user's baseline, message-length trend). Output (structured, §7.3): `{appetite, proximityToClose, justClosed, closedLoopId?, conversationNodeId, positionShift?, inferredPosition?, synthesisAnswer?, evidence}`. The Reader owns the conversation-position read — `conversationNodeId` says which node the exchange is actually about (§6.4).
+3. **Apply the read (code, not LLM):** if `conversationNodeId` ≠ current node → run the node-transition rules (§6.4), which may create a new Loop. If `justClosed` → set `Loop.closedAt` on `closedLoopId` (`closedBy: "reader"`), settle its node, **increment the in-memory `loopsClosedThisSession` counter**, write `positionShift` onto that Loop, and backfill `outcome` on **the most recent `DirectorDecision` of this session where `outcome IS NULL` and `turn < currentTurn`**. If `inferredPosition` is non-null and `Map.startingPosition` is null → write it to `Map.startingPosition` (never overwrite; G-23). If `synthesisAnswer` is non-null → write it to `Map.currentView` + a dated `ViewSnapshot` row. Either way, when `synthesisPending` was true, clear `Session.lastDirectiveSynthesis` (a deflected synthesis question is not re-armed). Write `proximityToClose` to the active Loop's `proximity` and stamp `Loop.lastTouchedAt`.
+4. **Director** (Haiku): input = Reader output + `currentNodeId` + loop ledger (with IDs) + **map context `{posture, startingPosition?, currentView?, loopsClosedThisSession, synthesisFiredThisSession, latestArtifactOpensHook?}`** + user model + running `costUsd` + last 2 exchanges. On turn 1 of any session the Reader fields are passed explicitly as `{appetite: null, proximityToClose: null, justClosed: false}` plus `isColdStart` / `isReturnTurn1` / `viaShelf` booleans (G-17). `tool_choice: "auto"`; code validates the output — if `setTutorMode` is missing, default `setTutorMode("explain")` and log a warning; cap at 2 calls; **code also strips `expandMap`/`spawnArtifact` on turn 1 and on off-map turns** (enforcement, not just prompt). Persist to `director_decisions` **including the rendered directive string**; emit `director_decision` SSE event.
 5. **Dispatch.** `setTutorMode` / `raiseCaution` → this turn's directive (a synthesis note also sets `Session.synthesisFired = true` **and** `Session.lastDirectiveSynthesis = true`). `expandMap` / `spawnArtifact` → async Generator promises.
 6. **Tutor** (Sonnet) streams. Request shape (cache-friendly, §14): system = anchor (static, cached) · messages = history (append-only) + user message + **directive injected as the final block** (wrapped in `<director_instruction>`, marked as untrusted-relative-to-floor).
 7. **Post-turn (async, within the stream):** Generator jobs resolve → `map_update` / `artifact_ready` events. A Generator exception (API error, schema-invalid output after one retry) logs a `generation_failed` Event and is skipped — **the stream always reaches `done`.** Safety check (§7.7) → optional `safety_note`. Cost meter incremented (§13).
 8. **Session end** (`/api/session/end`, tab-close beacon, or lazy idle-close): first **drain or abandon pending Generator promises**, then run the Profiler against the now-stable state; roll up metrics onto `sessions`. The Profiler also writes `Map.resumeSummary` (§7.6); **if the Profiler call fails, code writes a minimal fallback summary from the two open loops with highest proximity** — the welcome-back beat must never be empty-handed. `loopsChained` = closed loops referenced by some later loop's `chainedFromLoopId` (§6.4 — the only definition).
 
-**Turn 1 (return session — same map, later visit):** no Reader. The session's history opens with one context block: a **`user`-role message whose content is `<resume>…</resume>`** (containing `Map.resumeSummary` + the open loops as `question`/`proximity` + `currentView` if set), placed as the **first message of this session's history**. It is ordinary history thereafter — append-only holds, it sits after the cached anchor, so §14's cache discipline is untouched. This is how the guide remembers across sessions; raw history does not carry over. Director default (Reader fields null, `isReturnTurn1: true`): `setTutorMode("provoke", note: "welcome back — re-hook the brightest open loop, by name")`. The user arrives here from the map shelf (§9).
+**Turn 1 (return session — same map, later visit, arriving from the shelf):** no Reader. The session's history opens with one context block: a **`user`-role message whose content is `<resume>…</resume>`** (containing `Map.resumeSummary` + the open loops as `question`/`proximity` + `currentView` if set), placed as the **first message of this session's history**. It is ordinary history thereafter — append-only holds, it sits after the cached anchor, so §14's cache discipline is untouched. This is how the guide remembers across sessions; raw history does not carry over. Director default (Reader fields null, `isReturnTurn1: true`): `setTutorMode("provoke", note: "welcome back — re-hook the brightest open loop, by name")`. The user arrives here from the map shelf (§9). (A typed message after an idle close follows G-17 instead — same `<resume>`, no welcome-back directive.)
 
-**Turn 1 (cold start):** no Reader. The root node is already `current` with its Loop open (created by `/api/onboard`, which also fired seed generation of 4–6 frontier nodes). The Director runs with a possibly-partial ledger and **must not call `expandMap` on turn 1** (`setTutorMode` only; "surprise me" posture → `provoke`). From turn 2 on, if seeding still hasn't landed, ingest awaits it before the Reader runs.
+**Turn 1 (cold start):** no Reader. The root node is already `current` with its Loop open (created by `/api/onboard`, which also fired seed generation of 4–6 frontier nodes). The Director runs with a possibly-partial ledger and **must not call `expandMap` on turn 1** (`setTutorMode` only; "surprise me" posture → `provoke`). On non-challenge maps the default directive carries the note *"after the opening hook lands, add one light gut-check — which way are they leaning right now?"* (G-23; the challenge posture already stated its position at onboarding). From turn 2 on, if seeding still hasn't landed, ingest awaits it before the Reader runs.
 
 ## 6. The Director
 
@@ -145,7 +146,7 @@ Injected verbatim into every Director call. This is what "learns this user" mean
 |---|---|---|
 | *(created as)* `frontier` | Generator emits the node (or onboarding seeds it) | Generator |
 | `frontier`/`visited` → `current` | Reader reports `conversationNodeId` = this node. (A map-node click only sends the prefilled "pull this thread" message — the *next* Reader read confirms the move; the map never mutates state directly.) | Reader → code |
-| node becomes `current` | **its Loop row is created** (if none exists). If created within 2 turns of a `justClosed`, set `chainedFromLoopId` to that closed loop — this is the mechanical definition of a chain. | code |
+| node becomes `current` | **its Loop row is created** (if none exists). If created within 2 turns of a `justClosed`, set `chainedFromLoopId` to that closed loop — this is the mechanical definition of a chain. The Loop also records `openedBy` (G-21): `"user_click"` if the triggering user message was a map-node prefill · `"director_branch"` if the previous turn's decision included `expandMap(…, "branch")` · else `"reader_drift"`. Additive — read only by the `/stats` organic-chains line (§12), never by pipeline logic. | code |
 | `current` → `visited` | another node becomes `current` while this one's loop is still open | code |
 | any → `settled` | the node's Loop gets `closedAt` (Reader reported `justClosed` + `closedLoopId`; `closedBy: "reader"`) | Reader → code |
 | any → `settled` (soft-close) | user closes a stale loop from the node's context menu ("I've settled this elsewhere") — sets `closedAt`, `closedBy: "user"`; counts in `loopsClosed`, never in chains | user → code |
@@ -253,8 +254,12 @@ PRIOR POLICY (override only with a stated reason):
 - dangling loops ≥ 3 → close before you open: bias toward landing, not new hooks
 - challenge is dialectical: the tutor surfaces the real tension (where thoughtful
   people genuinely split), gives enough to take a side, asks where the user lands
-- synthesis beat: when map context shows posture = challenge-a-belief AND
-  loopsClosedThisSession ≥ 3 AND synthesisFiredThisSession = false, call
+- synthesis beat — the timing is your judgment, not a threshold: at most once
+  per session (synthesisFiredThisSession = false is hard-enforced), on any map,
+  fire it when the session has accumulated enough genuine movement that "what
+  do you actually think now?" will land — usually a few closes in
+  (loopsClosedThisSession is in your context, as a signal not a gate), never
+  on a flat session, never as a parting consolation. When it's time, call
   setTutorMode("socratic", note: "synthesis: ask what they actually think now,
   across everything closed this session"). If a currentView exists, include it:
   "they last said '[currentView]' — ask what's shifted, if anything"
@@ -285,9 +290,13 @@ Output JSON:
   conversationNodeId: the nodeId (from the provided list) this exchange is actually
             about — report a change only when the user has clearly moved; null if
             the exchange is not about ANY node on this map (a true topic jump)
-  positionShift: only when justClosed on a map with a stated startingPosition and
+  positionShift: only when justClosed on a map with a recorded startingPosition and
             the user's view visibly moved: one line, "thought X → now thinks Y";
             otherwise null. Use the user's own phrasing for both halves.
+  inferredPosition: only when the map has NO startingPosition yet and the user's
+            reply states or clearly implies a lean on the held question ("honestly
+            it sounds overblown to me"): one line in the user's own phrasing;
+            otherwise null. A hedge, a question, or pure confusion is not a position.
   synthesisAnswer: only when synthesisPending — if the reply actually states their
             position, return it (verbatim, trimmed to its core sentences); if they
             deflect, ask a question back, or change topic, return null.
@@ -318,8 +327,9 @@ You build a small interactive that delivers a click — the moment a person fina
 gets something. Given: the template schema, the node, and the exact loop question
 this artifact must resolve. Fill the template's props with true, specific,
 sourced-from-your-knowledge content that resolves THAT question. Numbers must be
-real (state the year/basis in a caption); if precision is uncertain, use clearly
-labeled approximations. The closingLine must do two jobs: land the payoff in one
+real (state the year/basis in the caption); if you cannot name a year or basis,
+leave the caption empty — the client renders a standing provenance note. If
+precision is uncertain, use clearly labeled approximations. The closingLine must do two jobs: land the payoff in one
 sentence, then raise the next question in one more.
 ```
 
@@ -353,13 +363,15 @@ correction/care card — write it plainly and kindly, two sentences max. On
 borderline cases do not flag; this check exists for clear misses only.
 ```
 
+**Artifact pass (G-22):** the same check runs over **each ready artifact's props** — the props JSON (title, headlines/details, numbers, closingLine) serialized as the reply under review. Artifacts carry the load-bearing numbers and are the most fabrication-exposed surface (PRD §10), so they get the same auditor as replies. Same post-turn async slot, same G-16 retry policy; a flag emits `safety_note {text, artifactId}`, rendered under the artifact tile.
+
 ## 8. Data model (Prisma sketch)
 
 ```prisma
 model User           { id String @id; createdAt DateTime; model UserModel?; maps Map[]; sessions Session[] }
 model UserModel      { userId String @id; data Json; updatedAt DateTime }   // §6.3 schema
 model Map            { id String @id; userId String; title String; heldQuestion String; posture String;
-                       startingPosition String?  // verbatim one-liner captured at onboarding for challenge-a-belief posture
+                       startingPosition String?  // verbatim one-liner: onboarding-stated (challenge posture) or Reader-inferred from early conversation (any posture; G-23)
                        currentView String?       // latest synthesis answer, verbatim — "Where you stand" on the map header
                        resumeSummary String?     // Profiler-written at session end; injected as <resume> on return-session turn 1
                        createdAt DateTime; nodes MapNode[]; loops Loop[]; viewSnapshots ViewSnapshot[] }
@@ -372,6 +384,7 @@ model Loop           { id String @id; mapId String; nodeId String; question Stri
                        chainedFromLoopId String?  // set at creation if within 2 turns of a justClosed (§6.4)
                        positionShift String?  // "thought X → now thinks Y"; Reader-written at close on held-belief maps
                        closedBy String?       // "reader" | "user" (soft-close); null while open
+                       openedBy String?       // "user_click" | "director_branch" | "reader_drift" — set at creation (§6.4, G-21)
                        lastTouchedAt DateTime?  // stamped whenever proximity is written; drives stale-glow dimming (§9)
                        openedAt DateTime; closedAt DateTime?; proximity Float @default(0) }  // proximity updated each turn from Reader
 model Session        { id String @id; userId String; mapId String; startedAt DateTime; endedAt DateTime?;
@@ -389,8 +402,8 @@ model Artifact       { id String @id; nodeId String; sessionId String; templateI
                        props Json; loopQuestion String; status String  // "generating"|"ready"|"opened"|"completed"
                        createdAt DateTime }
 model Event          { id String @id; sessionId String; type String; payload Json; createdAt DateTime }
-// Event types: session_start/end, message_sent, reply_latency, node_enter, loop_opened/closed,
-//              artifact_opened/completed, director_decision, safety_flag, cost_tick
+// Event types: session_start/end, message_sent, reply_latency, ttft, node_enter, loop_opened/closed,
+//              artifact_opened/completed, director_decision, reader_disputed, safety_flag, cost_tick, mobile_gate
 ```
 
 ## 9. UI specification
@@ -454,15 +467,15 @@ All visual values below are token references. An implementing model needs no add
 | **budget-allocator** | `--alloc-*`, `--slider-*` (sum enforced = 100) | bars animate to `actualPercent`; `--alloc-delta-{over,under}` label per category; `insight` via `--reveal-*` | Proportional re-adjustment across sliders enforced in component |
 | **threshold-hunt** | `--threshold-*`, `--slider-*` | above/below feedback per probe; `--reveal-*` after `revealTolerance` or 6 probes; threshold marked on range bar | `belowLabel`/`aboveLabel` shown on feedback; range bar uses `--threshold-{above,below}-bg` zones |
 
-**Home (map shelf):** a returning user (any map exists for the local `userId`) lands on a simple shelf — one card per map: held question, count of glowing (open) loops, **the brightest open loop named outright** (from `resumeSummary` — the card is itself a hook, not a menu item), "Where you stand" one-liner when set, last-visited date. After the user's 3rd session, a card gains one more line: *"Your guide has noticed: [one styleNote from the user model]"* — the personalization, made visible. Clicking a card starts a new session on that map (the return-turn-1 flow, §5); a primary "bring a new question" button starts onboarding. The shelf footer has **Export / Import** (round-trips all user data as one JSON file — the guard against localStorage loss, stated plainly: "your maps live in this browser; export to keep them"). First-time users skip the shelf entirely.
+**Home (map shelf):** a returning user (any map exists for the local `userId`) lands on a simple shelf — one card per map: held question, count of glowing (open) loops, **the brightest open loop named outright** (from `resumeSummary` — the card is itself a hook, not a menu item), "Where you stand" one-liner when set, last-visited date. After the user's 3rd session, a card gains one more line: *"Your guide has noticed: [one styleNote from the user model]"* — the personalization, made visible. Clicking a card starts a new session on that map (the return-turn-1 flow, §5); a primary "bring a new question" button starts onboarding. The shelf footer has **Export / Import** (round-trips all user data as one JSON file — the guard against localStorage loss, stated plainly: "your maps are keyed to this browser's anonymous ID; export to keep a copy you control"). First-time users skip the shelf entirely.
 
-**Layout (desktop):** header (topic title · held question · **"Where you stand: …" one-liner when `currentView` is set, with its as-of date, a ✎ edit affordance (typing a replacement writes a new `ViewSnapshot`), and a small history icon that opens the dated list of all `ViewSnapshot`s — the trail, §5.7 PRD** · cost-meter dot · Conductor toggle) · left pane **chat** (~55%) · right pane **map** (~45%) · Conductor pane as a bottom drawer overlaying the map pane when open. Mobile: tab switch between Chat and Map; Conductor inside a sheet. Desktop-first; mobile must be usable, not polished.
+**Layout (desktop):** header (topic title · held question · **"Where you stand: …" one-liner when `currentView` is set, with its as-of date, a ✎ edit affordance (typing a replacement writes a new `ViewSnapshot`), and a small history icon that opens the dated list of all `ViewSnapshot`s — the trail, §5.7 PRD** · cost-meter dot · Conductor toggle) · left pane **chat** (~55%) · right pane **map** (~45%) · Conductor pane as a bottom drawer overlaying the map pane when open. Mobile: tab switch between Chat and Map; Conductor inside a sheet. Desktop-first; mobile must be usable, not polished. On phone-sized viewports, first load shows a gentle gate — *"Worldview is built for a bigger screen — grab a laptop when the question comes back."* — with a continue-anyway link; the choice is logged as a `mobile_gate` Event (the kill test runs desktop-only, PRD §10).
 
-**Chat:** streamed markdown; artifact tiles render inline as cards (locked → shimmer "building…" → unlocked with template UI inline; expandable to a modal). The input is never disabled.
+**Chat:** streamed markdown; artifact tiles render inline as cards (locked → shimmer "building…" → unlocked with template UI inline; expandable to a modal). The input is never disabled mid-conversation; the single exception is the cost lock (§13, G-18), where the composer is replaced by one button — **"Start a fresh session"** → `POST /api/session/end` for the locked session, then a new session on the same map via the shelf-return flow.
 
 **Map (React Flow):** custom node component, four visual states — `frontier`: dashed border, 50% opacity · `current`: solid + accent ring · open loop: soft pulse glow on the node edge · `settled`: solid, muted, small ✓. Node click = recenter conversation offer ("Pull this thread?") — it sends a prefilled user message; the map is a view, it never bypasses the Tutor. The node context menu also offers **soft-close** on stale open loops ("I've settled this elsewhere" → `closedBy: "user"`, §6.4). **Stale-glow decay:** loops with `lastTouchedAt` older than 14 days pulse at 50% opacity — an old question dims from invitation toward memory instead of nagging. New nodes animate in (fade + 0.95→1 scale, 400 ms). Auto-layout: `dagre` tree, root at left. Viewport eases to keep current node + children in frame. **Overview toggle:** one control fits the entire map in view (React Flow `fitView`), rendering slim title-only nodes — so a 40-node month-two map stays readable as a shape, not a wall.
 
-**Conductor pane:** header line: *"How the guide is adapting to you this session"* (frames the data as a feature, not telemetry). One row per turn: `turn # · signals (chips: "leaning in", "near click 0.8") · tools called · rationale`. Live-appends from `director_decision` SSE events. Footer: session stats (loops closed/chained/dangling, cost).
+**Conductor pane:** header line: *"How the guide is adapting to you this session"* (frames the data as a feature, not telemetry). One row per turn: `turn # · signals (chips: "leaning in", "near click 0.8") · tools called · rationale · 👍/👎`. The thumbs ask *"did the guide read you right?"* and write a `reader_disputed` Event `{decisionId, vote}` — the trust surface doubles as the eval instrument (PRD §10). Live-appends from `director_decision` SSE events. Footer: session stats (loops closed/chained/dangling, cost).
 
 **Onboarding:** full-screen card → posture chips → question textarea ("surprise me" hides it) → sharpen-and-confirm line ("So the question is: … — right?") → transition: map pane fades in and seeds while turn 1 streams.
 
@@ -478,7 +491,8 @@ All templates are React components receiving `props` (Generator-filled JSON, val
 ```ts
 {
   title:       string    // artifact headline; rendered in Fraunces in the card header
-  caption?:    string    // source attribution or date context; rendered small/muted below the interactive
+  caption?:    string    // source attribution or date context; rendered small/muted below the interactive.
+                         // When absent, the client renders the standing line "from model knowledge — figures approximate"
   closingLine: string    // one sentence: lands the payoff then raises the next question; rendered in Fraunces
   opensHook?:  string    // the next loop question this artifact deliberately opens (soft hint to the Director)
 }
@@ -534,7 +548,7 @@ All templates are React components receiving `props` (Generator-filled JSON, val
 ```
 **Interaction:** user clicks one option → choice locked → correct option highlighted green, chosen wrong option highlighted red → `reveal` and `whyYourGuessWasReasonable` fade in below.
 
-**Example:** minimum wage — four positions from "always increases unemployment" to "never does," correct index = 1 (modest context-dependent rise at typical magnitudes).
+**Example:** extreme poverty — "What share of the world lived in extreme poverty in 2020?" Options 10% / 30% / 50% / 70%, correct index = 0 (~9–10%, World Bank); `whyYourGuessWasReasonable` notes that news coverage tracks crises, not trendlines. (Deliberately an uncontested empirical — genuinely contested questions belong to `steelman-duel`, per the selection guidance.)
 
 ---
 
@@ -995,7 +1009,7 @@ All templates are React components receiving `props` (Generator-filled JSON, val
 ```
 **Interaction:** user sees the question, unit, and range; a coarse slider or number input lets them pick a probe value; clicking "Test" returns "Below the threshold" or "Above the threshold" (or the reveal prompt when within `revealTolerance`); after the reveal or after 6 probes (whichever comes first), the threshold is marked on a labeled range bar with `reveal` text below.
 
-**Example:** income and wellbeing — minValue: 20, maxValue: 500 ($k/year), thresholdValue: 75, belowLabel: "each dollar buys measurable wellbeing," aboveLabel: "gains plateau," revealTolerance: 20; reveal cites Kahneman & Deaton (2010) and the Killingsworth (2021) update.
+**Example:** the ocean's photic zone — "Below what depth does sunlight stop supporting photosynthesis?" minValue: 0, maxValue: 1000 (m), thresholdValue: 200, belowLabel: "enough light to photosynthesize," aboveLabel: "perpetual twilight — no net photosynthesis," revealTolerance: 50; reveal explains light attenuation and why most ocean life crowds the top 200 m. (The previous example — the $75k income/wellbeing plateau — was dropped: Killingsworth 2021 and the 2023 Killingsworth–Kahneman adversarial collaboration substantially overturned it, and a duty-of-care product shouldn't enshrine an overturned finding in its own spec.)
 
 ---
 
@@ -1041,7 +1055,7 @@ One-line "use when" per template, grouped by cognitive move, for reference in Di
 
 ## 11. Safety & guardrails
 1. **Binding floor** in the Tutor anchor (§7.1) — trusted system prompt, not reachable by any tool. Director output is wrapped in `<director_instruction>` and explicitly subordinated to the floor (soft mitigation; the hard boundary is that tools can't touch the system prompt).
-2. **Post-turn check** (Haiku, async): reviews the Tutor's reply for (a) confident factual claims that look fabricated/wrong, (b) advice crossing the medical/legal/financial line, (c) missed distress signals. On flag: `safety_note` SSE event renders a small correction/care card under the reply, and the event is logged. Fail-open with logging (a missed check must never block the conversation at v1 scale).
+2. **Post-turn check** (Haiku, async): reviews the Tutor's reply — and each ready artifact's props (G-22) — for (a) confident factual claims that look fabricated/wrong, (b) advice crossing the medical/legal/financial line, (c) missed distress signals. On flag: `safety_note` SSE event renders a small correction/care card under the reply, and the event is logged. Fail-open with logging (a missed check must never block the conversation at v1 scale).
 3. `raiseCaution` may only add caution to a directive.
 4. **Not v1:** mid-stream interruption/retraction, circuit breakers, moderation infra (no UGC is shared between users).
 
@@ -1051,10 +1065,14 @@ One-line "use when" per template, grouped by cognitive move, for reference in Di
 - **Computed per session:** `loopsClosed`, `loopsChained` (closed loops referenced by a later loop's `chainedFromLoopId` — §6.4 is the only definition), `loopsDangling`, active time, cost.
 - **North star at v1 scale:** read qualitatively — Conductor pane per session + a `/stats` debug page listing sessions with the four numbers. No dashboards.
 - **Signals into the Reader:** computed (reply latency vs. user's own baseline, message-length trend, artifact interactions) + judged (appetite, proximity). All logged to `events` regardless of use.
+- **TTFT budget (G-20):** `POST /api/turn` → first `tutor_delta` ≤ **3.5 s p50**, logged per turn as a `ttft` Event `{ms}`. Pre-committed (not pre-built) mitigation if real sessions miss it: merge Reader + Director into one Haiku call emitting both outputs — halves pre-stream latency with no architecture change. Measure first.
+- **Organic chains (G-21, `/stats` only):** chains whose chained loop has `openedBy ≠ "director_branch"` — the Director's own restless-branch moves open loops inside the 2-turn window and would otherwise flatter the chain rate. Additive readout; `loopsChained` (G-01/G-14) is unchanged and the frozen tests stand.
+- **Reader grading:** `reader_disputed` Events (Conductor 👍/👎) listed on `/stats` beside the decision rows they dispute — the candidate set for the post-build hand-label pass (~50 exchanges; Reader agreement reported in the README, PRD §10).
 
 ## 13. Cost model & ceiling
 Per typical turn (cached anchor): Tutor (Sonnet 4.6, $3/$15 per MTok): ~2.5K in (mostly cache-read at ~$0.30/MTok) + ~350 out ≈ **$0.006–0.01** · Haiku calls (Reader + Director + post-turn, $1/$5): ≈ $0.002 · Generator job when fired: ≈ $0.003. **≈ $0.01–0.015/turn → a 30-turn session ≈ $0.30–0.50** (Opus Tutor flag: ~2×). Budget meter accumulates real `usage` from every response.
 `Session.costUsd` is **incremented atomically after every API response** from its real `usage`; the threshold is read at the start of each turn. **Ceiling: $2.00/session.** At $1.60 the Director's payload flags it and the prompt biases toward closing. **At $2.00 (detected at turn start, before the Reader):** the pipeline takes a special branch — skip Reader and Director, abandon pending Generator jobs, send the Tutor one hardcoded directive ("close the session warmly in ≤2 sentences: the map keeps glowing and will be here tomorrow"), stream it, emit `done`, set `Session.costLocked = true`; the client reads `costLocked` and disables input until a new session. With the Opus Tutor flag the same mechanics apply but trigger roughly twice as fast (~15 turns, not ~30).
+**Global guard (G-19):** `GLOBAL_DAILY_LIMIT_USD` env (default `20`) — checked at turn start before any model call (and before the per-session ceiling branch), summing `Session.costUsd` across all sessions with `startedAt` in the trailing 24 h. At/over the cap → `503` with a friendly full-page note ("Worldview is resting — back tomorrow"). The per-session ceiling bounds one conversation; this bounds a hosted instance whose URL leaked. At the per-session lock, the composer swaps to the "Start a fresh session" button (§9, G-18).
 
 ## 14. Prompt caching (one paragraph, that's all it needs)
 Order: `tools → system → messages`. Tools (Director call) and the Tutor anchor are byte-stable; `cache_control` breakpoint on the anchor's last block; history is append-only within a session; the per-turn directive rides in the *final* message block so it never invalidates the prefix. Sonnet 4.6 minimum cacheable prefix is 2,048 tokens — the anchor is sized past it (§7.1) and turn-2 `cache_read_input_tokens > 0` is the regression test. At v1 scale this is hygiene, not economics.
@@ -1079,14 +1097,15 @@ Order: `tools → system → messages`. Tools (Director call) and the Tutor anch
 7. Cost meter accumulates real usage; ceiling behavior demonstrable with a lowered `SESSION_COST_LIMIT` env.
 8. `director_decisions` rows contain signals, tools, rationale, the rendered directive, and backfilled outcomes — the future-policy training set exists from day one. (Each session's final decision keeps `outcome = null`; that's expected, not a failure.)
 9. Cache regression: turn 2 logs `cache_read_input_tokens > 0`.
-10. README: what this is (PRD §1–2), the metric stance (PRD §4, two sentences on why not session length), clone-and-run, and a Conductor pane screenshot.
+10. README, **judgment-first and written in the builder's own voice (not generated)**: opens with the metric stance (why clicks, not session length — PRD §4) and the pre-registered kill test, then what this is (PRD §1–2), clone-and-run, with the demo recording + Conductor screenshot one scroll below. Reserves a section for the Reader-agreement eval result (placeholder until the hand-label pass runs).
 11. Return flow: end a session, come back — land on the map shelf; resuming opens with a welcome-back beat that names a real open loop (verify `Map.resumeSummary` was written and the `<resume>` block was injected).
-12. View ledger: on a challenge-a-belief map, a genuine synthesis answer writes `Map.currentView` + a `ViewSnapshot` (a deflection writes nothing); "Where you stand" renders in the header with its as-of date; the history icon opens the dated snapshot list; the ✎ edit writes a new snapshot.
+12. View ledger: on a challenge-a-belief map, a genuine synthesis answer writes `Map.currentView` + a `ViewSnapshot` (a deflection writes nothing); "Where you stand" renders in the header with its as-of date; the history icon opens the dated snapshot list; the ✎ edit writes a new snapshot. (Since the 2026-06-12 de-gating, any posture qualifies for the synthesis beat; the challenge map remains the canonical acceptance case because it also exercises `startingPosition`.)
 13. Packaging: repo is git-initialized with an MIT `LICENSE`; README includes a screenshots section with a placeholder for a ~90 s session recording (captured manually post-build — placeholder link is acceptable at code-complete).
 14. Long-map hygiene: the overview toggle fits the whole map in view; a loop with `lastTouchedAt` older than 14 days renders the dimmed glow; node-context-menu soft-close works and records `closedBy: "user"`.
 15. Shelf: cards name the brightest open loop; the "your guide has noticed" line appears once 3 sessions exist; Export downloads one JSON of all user data and Import restores it on a fresh profile.
 16. Cost lock: with a lowered `SESSION_COST_LIMIT`, the ceiling branch fires at turn start — wrap-up line streams, `done` emits, `costLocked` disables input; no Reader/Director calls are made on that turn.
 17. **The pre-written contract suite passes:** `npx vitest` under `LLM_MODE=mock` runs the 73 spec-derived tests in `tests/` green. The implementer may ADD tests but must never modify existing ones (`git diff` on `tests/` stays clean, excluding additions).
+18. Review-resolution behaviors (2026-06-12, all additive): a lowered `GLOBAL_DAILY_LIMIT_USD` blocks at turn start with the friendly page; the cost-locked composer offers and executes "Start a fresh session"; an unsourced artifact renders the standing provenance caption; the Conductor 👍/👎 writes a `reader_disputed` Event; `ttft` Events appear per turn; a synthesis directive fires on an `understand`-posture map (mock-driven — the mock Director chooses the moment); a Reader-supplied `inferredPosition` writes `Map.startingPosition` once and never overwrites; a phone-sized viewport shows the desktop gate with continue-anyway.
 
 ## 17. Contract clarifications (from the test-author review — answers to `tests/GAPS.md`)
 
@@ -1106,6 +1125,13 @@ Order: `tools → system → messages`. Tools (Director call) and the Tutor anch
 - **G-14 (`loopsChained` scoping):** the per-session rollup counts chains where **both ends are in this session**; cross-session chains remain visible in the `Loop` table but are not in session rollups.
 - **G-15 (test endpoints in prod):** when `LLM_MODE ≠ mock`, the `/api/_test/*` routes are not mounted — plain 404.
 - **G-16 (retry policy):** one retry on schema-validation failure applies to **all structured Haiku calls** (Reader, Generator, Profiler, Safety). The Director (tool use) gets no retry — code validation + defaults (§5.4). Critical-path failure after retry: Reader → proceed with neutral signals (`appetite: "neutral"`, proximity unchanged, no close) + log; Director → default `setTutorMode("explain")` + log.
+- **G-17 (typed message after idle close):** not a shelf return. The new session opens with the `<resume>` block as usual, but the Director receives `viaShelf: false` alongside `isReturnTurn1: true`, and its default is `setTutorMode("explain", note: "they just said something — answer it directly; no welcome-back beat")`. The welcome-back re-hook (§5) applies only when `viaShelf: true`.
+- **G-18 (cost-lock affordance):** at `costLocked` the composer is replaced by a single "Start a fresh session" button → `POST /api/session/end` for the locked session, then a new session on the same map via the shelf-return flow. A new session means a new $2.00 ceiling; the wrap-up's "the map keeps glowing" stays true.
+- **G-19 (global spend cap):** `GLOBAL_DAILY_LIMIT_USD` env (default `20`). Checked at turn start, before the per-session ceiling branch and before any model call: sum of `Session.costUsd` over sessions with `startedAt` in the trailing 24 h. At/over the cap → `503` with a friendly full-page note; no model calls are made.
+- **G-20 (latency budget):** `POST /api/turn` → first `tutor_delta` ≤ 3.5 s p50, logged per turn as a `ttft` Event `{ms}`. Mitigation is pre-committed but NOT built in v1: if real sessions miss the budget, merge Reader + Director into one Haiku call emitting both outputs. Measure first.
+- **G-21 (`Loop.openedBy`):** set at Loop creation (§6.4): `"user_click"` (map-node prefill message) · `"director_branch"` (previous turn's decision included a branch `expandMap`) · `"reader_drift"` (everything else). Read only by the `/stats` **organic chains** line — chains whose chained loop has `openedBy ≠ "director_branch"`. `loopsChained` (G-01/G-14) is unchanged; the frozen tests stand.
+- **G-22 (artifact safety pass):** the §7.7 check also runs per `artifact_ready`, with the artifact's props JSON serialized as the reply under review. Same async slot, same G-16 retry policy; a flag emits `safety_note {text, artifactId}`, rendered under the artifact tile.
+- **G-23 (belief pull, non-challenge postures):** the cold-start directive on non-challenge maps asks the Tutor to end its opening hook with one light gut-check ("which way are you leaning right now?"). The Reader gains the optional `inferredPosition` output (§7.3) — set only while `Map.startingPosition` is null and the user states or clearly implies a lean, in their own phrasing; code writes it to `Map.startingPosition` once and never overwrites. The `positionShift` write-gate keys on **startingPosition presence, not posture** — the frozen position test (null-startingPosition case) stands, since its mocked Reader supplies no inference.
 
 ## 18. Test harness (build requirement)
 
