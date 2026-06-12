@@ -1,127 +1,101 @@
 # Worldview
 
-**Bring the thing you can't stop wondering about — leave actually getting it.**
-
-A conversation with one AI guide, a living map of your thinking, and an invisible
-**Director** choosing — every turn, transparently — how to serve your curiosity.
-
-> The prose in the `[PLACEHOLDER]` sections below is the author's to write — these are
-> scaffolds, not copy. Everything outside them is factual and current.
+Bring the thing you can't stop wondering about. Leave actually getting it — with a map of how your thinking got there.
 
 ---
 
-## Why clicks, not session length
+It's late, and some question has its hooks in you. Why everyone suddenly cares about the national debt. Why planes are slower than they were in 1970. Whether the thing your uncle said at dinner is actually true. So you open a tab. Then a YouTube video, a Reddit thread, a Wikipedia page that assumes you already know the thing you opened it to learn. Forty minutes later you have nine tabs and roughly the understanding you started with, and the moment you close the laptop the whole thread evaporates.
 
-[PLACEHOLDER — the metric stance, in the author's voice. The north star is **clicks**:
-loops closed in a way that opens the next loop (PRD §4). Session length is a *health
-signal*, not the objective — a confused user produces a long session, a delighted one a
-short one. Say why, plainly, the way the PRD decision log says it.]
+A chatbot doesn't really fix this. It answers the question and stops. Staying curious is back on you, and tomorrow the conversation is gone. Worldview makes the opposite trade: it treats your question as the *start* of a thread, and every payoff it lands is built to open the next one.
 
-## The pre-registered kill test
+![Onboarding](docs/assets/onboarding.png)
 
-[PLACEHOLDER — the honest bet, written *before* the build (PRD §10). ~10 unprompted
-sessions with real people on questions they genuinely hold; no notifications. Desktop-only
-protocol. ≥4 of 10 unprompted returns within a week = the multi-session bet lives, ≤2
-falsifies it, 3 extends the cohort. State the n≈10 caveat (friends return out of goodwill)
-out loud so it can't be graded on a curve later.]
+## How it works
 
-## What this is
+One screen, two panes. On the left, a conversation with a single guide. On the right, a map of your thinking that grows as you talk — questions and ideas, not a syllabus. Open loops glow like embers; settled ones go quiet. Come back tomorrow and the map is exactly where you left it.
 
-[PLACEHOLDER — PRD §1–2 in the author's voice. One screen, two panes: a conversation with
-a single guide on the left, a living map that grows as you talk on the right. Why not just
-ask ChatGPT — the table in PRD §2. What it is *not*: not a course, not a chatbot, not
-Wikipedia.]
+Behind the guide is a **Director** that makes one decision every turn: how to serve *you*, right now. Explain when you're building, challenge when you're coasting, go a layer deeper, change the angle, or hand you the payoff as something you can drag instead of read. It reads two things — how engaged you are, and how close you are to the "ohhh" — and picks its move.
 
----
+Two rules it never breaks. It won't hand you the answer: a thread only settles when *you* say the insight back in your own words, because you can't really own a view you were handed. And it won't trade truth for a hook — if the honest answer kills a great setup, the setup dies.
+
+![A session in progress](docs/assets/session.png)
+
+Sometimes the click is better felt than read — a slider where you watch interest payments cross the defense budget as you drag the rate, a predict-then-reveal that catches your wrong intuition in the act. Those are real interactive components, filled per-moment for the exact question you're on.
+
+![The interactive templates](docs/assets/artifacts.png)
+
+## The one number I watch
+
+Not minutes. Session length is a bad proxy for the feeling this sells — a confused person produces a long session, a delighted one might produce a short one. The number is the **click**: a loop closed in a way that opens the next loop. The quality multiplier is whether that next loop actually got pursued.
+
+This also kills the obvious failure mode by construction. If you optimize for time-on-app, you build something that strings people along. If you optimize for resolved curiosity, you build something that resolves curiosity.
+
+The Director's reasoning isn't hidden, either. Every move it makes is logged and shown in the **Conductor pane**, one row per turn, each with a quiet 👍/👎 — *did the guide read you right?* That's there for trust (nothing you can't see is steering you), and it doubles as the instrument I use to check whether the Director's reads are any good.
+
+## The bet, written down before I built it
+
+The honest version of "is this worth making" is one great session on a question you actually hold, often enough that you come back without being nagged. So that's the test, and I wrote the thresholds down first so I can't grade on a curve later:
+
+Ten friends, real questions, no notifications and no reminders. **Four or more come back on their own within a week → the multi-session bet lives. Two or fewer → it's dead.** Three means the sample's too small to call and I extend it. Desktop only, because a friend opening a texted link on a phone would be measuring mobile polish, not the curiosity hypothesis. And it's friends, who return partly out of goodwill — which is written here so I remember it when I read the result.
+
+One more piece of honesty baked into the scope: the name promises a *worldview*, and the view-forming layer in v1 is deliberately thin — a before/after on what you thought, a once-a-session "so what do you actually think now?", a "Where you stand" line that remembers. It costs nothing and it's never the pitch. If returners ignore it, it stays a side effect and earns no more investment. The pitch is the curiosity; the view is what curiosity slowly turns into.
 
 ## Run it
 
-Clone-and-run holds — a single Node process (not serverless), zero-config SQLite, only one
-secret needed:
+One Node process, zero-config SQLite, one secret.
 
 ```bash
 npm install
-npx prisma db push          # creates the SQLite db from prisma/schema.prisma
+npx prisma db push          # creates the local SQLite database
 npm run dev                 # http://localhost:3000
 ```
 
-The only thing you must provide is an Anthropic API key, in `.env.local`:
+The only thing you provide is an Anthropic API key, in `.env.local`:
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-`DATABASE_URL` already defaults to `file:./dev.db` (committed in `.env`), so nothing else is
-required. Optional env flags: `TUTOR_MODEL` (e.g. `claude-opus-4-8` for the Opus Tutor),
-`SESSION_COST_LIMIT` (default `2.0`), `GLOBAL_DAILY_LIMIT_USD` (default `20`),
-`FORCE_ARTIFACT` (a template id or `true`, for deterministic artifact testing).
+Everything else has a default. A few optional knobs: `TUTOR_MODEL` (point the guide at Opus instead of Sonnet), `SESSION_COST_LIMIT` (default `$2`), `FORCE_ARTIFACT=slider-sim` (spawn an interactive on the next turn, for poking at it deterministically).
 
-### Run the contract suite
+### Tests
 
-73 spec-derived tests, written before the implementation and never modified by it, run
-against a real server in mock mode (no API key needed):
+The contract was written before the code, by a separate pass that never saw the implementation: 73 spec-derived tests that run against a real server with the model calls mocked, so no key is needed.
 
 ```bash
 npx vitest run --config tests/vitest.config.ts
+#  Tests  78 passed (78)      ← the 73 frozen tests + a few I added
 ```
 
-```
-Test Files  10 passed (10)
-     Tests  73 passed (73)
-```
+Two debug surfaces worth a look: `/dev/artifacts` renders all six interactive templates from sample data, and `/stats` is the eval page — per-session numbers, the model it's built of you, the full decision log.
 
-### Debug surfaces
+## Under the hood
 
-- `/dev/artifacts` — all six v1 interactive templates rendered from sample props
-- `/stats` — the v1 eval instrument: per-session metrics, the persisted user model, the
-  Director decision log, organic-chain rate, Reader-dispute candidates
+Server and client are one Next.js process — not serverless, because the turn's response stream stays open while the map fills in behind it, and you never wait on that.
 
----
-
-## Demo
-
-[PLACEHOLDER — a ~90-second screen recording of one session (captured manually post-build),
-and the Conductor-pane screenshot. Drop them here, one scroll below the pitch, per §16 item 10.]
-
-<!--
-![Session recording](docs/assets/session.gif)
-![Conductor pane](docs/assets/conductor.png)
--->
-
-## Reader-agreement eval
-
-[PLACEHOLDER — reserved for the post-build hand-label pass (PRD §10): ~50 real exchanges
-labeled against the Reader's appetite/`justClosed` reads (the Conductor 👍/👎 collects the
-candidates), with agreement reported here. The north star must not stay self-graded homework.]
-
----
-
-## How it's built
-
-The server-side engine (the **Curiosity Engine**) and the Worldview client are one Next.js
-Node process.
-
-| Layer | Where |
+| Piece | Where |
 |---|---|
-| Per-turn pipeline (Reader → Director → Tutor, async Generator + Safety) | `src/lib/pipeline.ts` |
-| The single LLM-call module + mock seam (TDD §18) | `src/lib/llm.ts`, `src/lib/mockStore.ts` |
-| Prompts (the product — §7 verbatim) | `src/lib/prompts.ts` |
+| Per-turn pipeline (Reader → Director → guide, async map/artifact generation, post-hoc safety check) | `src/lib/pipeline.ts` |
+| One module every model call routes through (the mock seam lives here too) | `src/lib/llm.ts` |
+| The prompts — which are most of the actual product | `src/lib/prompts.ts` |
+| Six interactive templates + their schemas | `src/templates/` |
+| The map (React Flow), chat, Conductor, shelf | `src/components/` |
 | Data model (Prisma / SQLite) | `prisma/schema.prisma` |
-| API routes (`/api/onboard`, `/api/turn` SSE, …) | `src/app/api/**` |
-| Six v1 artifact templates + Zod schemas | `src/templates/**` |
-| UI — onboarding, shelf, two-pane session, React Flow map, Conductor | `src/components/**` |
 
-The spec is the source of truth and lives alongside the code:
+A couple of decisions that matter: the guide adapts per-turn, but the safety floor lives in its system prompt where no Director instruction can reach it. The Director's per-decision log is structured as a training set from day one — there's no learned policy in v1 (ten users would never train one, and pretending otherwise would be theater), but the day there's data to learn from, it's already collected.
 
-- `docs/PRD.md` — the product: vision, metrics, the worked example
-- `docs/TDD.md` — the build contract: pipeline, prompts, schema, acceptance checklist (§16)
-- `design/mockup.html` — the canonical design (open it in a browser)
-- `design/tokens.css` — the design tokens (all 20 §10 templates)
-- `tests/` — the spec-derived contract suite
-- `BUILD_NOTES.md` — decisions made where the spec was silent
+The full spec, the design reference, and the reasoning behind every call live next to the code in [`docs/`](docs/), with the build-time decisions in [`BUILD_NOTES.md`](BUILD_NOTES.md).
 
-The orchestration is transparent by design: every Director decision is logged and shown in
-the **Conductor pane**, and each row carries a 👍/👎 — *did the guide read you right?* — that
-doubles as the Reader eval instrument.
+## Where it's honest about v1
 
-License: MIT (see `LICENSE`).
+The weakest link is re-engagement: there are no notifications. v1's entire return loop is the shelf, the glow on an unfinished thread, and your own memory. I know that's thin, and it's the first thing the kill test pressures.
+
+A ~90-second recording of a real session goes here once I've captured one:
+
+<!-- ![Session recording](docs/assets/session.gif) -->
+
+And the Reader-grading result — ~50 real exchanges hand-labeled against what the Director thought you were doing — goes here once that pass runs. Until then, the north star is honestly still self-graded, and I'd rather say so than pretend otherwise.
+
+---
+
+MIT. Build on it.
