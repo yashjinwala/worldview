@@ -23,10 +23,10 @@ export async function GET(req: NextRequest) {
 
   const cards = await Promise.all(
     maps.map(async (m) => {
-      const openLoops = await prisma.loop.findMany({
-        where: { mapId: m.id, closedAt: null },
-        orderBy: { proximity: 'desc' },
-      })
+      const [openLoops, lastSession] = await Promise.all([
+        prisma.loop.findMany({ where: { mapId: m.id, closedAt: null }, orderBy: { proximity: 'desc' } }),
+        prisma.session.findFirst({ where: { mapId: m.id }, orderBy: { startedAt: 'desc' } }),
+      ])
       return {
         mapId: m.id,
         heldQuestion: m.heldQuestion,
@@ -36,8 +36,9 @@ export async function GET(req: NextRequest) {
         currentView: m.currentView,
         startingPosition: m.startingPosition,
         lastVisitedAt: m.lastVisitedAt,
-        // The most recent session id on this map — the client POSTs a turn to it to
-        // resume (the server creates a return session lazily, §5).
+        // Most recent session id on this map — the client POSTs a turn to it (viaShelf)
+        // to resume; the server creates a return session lazily (§5).
+        lastSessionId: lastSession?.id ?? null,
       }
     })
   )

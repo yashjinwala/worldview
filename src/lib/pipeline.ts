@@ -20,7 +20,8 @@ import { SURPRISE_ROTATION } from './surprise'
 import { SESSION_COST_LIMIT_USD, SESSION_COST_NEAR_USD } from './pricing'
 import { OFF_MAP_SCRIPT, COST_LOCK_WRAP_UP } from './prompts'
 import { TEMPLATE_SCHEMAS } from '@/templates/schemas'
-import { Posture, ReaderOutput, DirectorToolCall, TutorMode } from './types'
+import { TEMPLATE_PROMPT_SPECS } from '@/templates/promptSpecs'
+import { Posture, ReaderOutput, DirectorToolCall, TutorMode, V1_TEMPLATE_IDS } from './types'
 
 const IDLE_MS = 30 * 60 * 1000
 const VALID_MODES: TutorMode[] = ['explain', 'challenge', 'provoke', 'socratic', 'support']
@@ -40,22 +41,34 @@ async function countUserTurns(sessionId: string): Promise<number> {
   return msgs.filter((m) => !isResumeMessage(m.content)).length
 }
 
+const STALE_MS = 14 * 24 * 60 * 60 * 1000
+
 async function buildMapNodePayloads(mapId: string) {
-  const [nodes, openLoops] = await Promise.all([
+  const [nodes, openLoops, artifacts] = await Promise.all([
     prisma.mapNode.findMany({ where: { mapId }, orderBy: { createdAt: 'asc' } }),
-    prisma.loop.findMany({ where: { mapId, closedAt: null }, select: { nodeId: true } }),
+    prisma.loop.findMany({ where: { mapId, closedAt: null }, select: { id: true, nodeId: true, lastTouchedAt: true } }),
+    prisma.artifact.findMany({ where: { node: { mapId } }, select: { nodeId: true } }),
   ])
-  const openSet = new Set(openLoops.map((l) => l.nodeId))
-  return nodes.map((n) => ({
-    id: n.id,
-    parentId: n.parentId,
-    depth: n.depth,
-    title: n.title,
-    summary: n.summary,
-    hookQuestion: n.hookQuestion,
-    status: n.status,
-    hasOpenLoop: openSet.has(n.id),
-  }))
+  const loopByNode = new Map(openLoops.map((l) => [l.nodeId, l]))
+  const artifactNodes = new Set(artifacts.map((a) => a.nodeId))
+  const now = Date.now()
+  return nodes.map((n) => {
+    const loop = loopByNode.get(n.id)
+    const stale = !!loop?.lastTouchedAt && now - new Date(loop.lastTouchedAt).getTime() > STALE_MS
+    return {
+      id: n.id,
+      parentId: n.parentId,
+      depth: n.depth,
+      title: n.title,
+      summary: n.summary,
+      hookQuestion: n.hookQuestion,
+      status: n.status,
+      hasOpenLoop: !!loop,
+      openLoopId: loop?.id ?? null,
+      stale,
+      hasArtifact: artifactNodes.has(n.id),
+    }
+  })
 }
 
 // ── onboarding (POST /api/onboard) ───────────────────────────────────────────
@@ -356,6 +369,18 @@ async function pipelineTurn(
     const { tools, warned } = validateDirectorTools(dir.tools, isTurn1, offMap)
     if (warned) await logEvent(sessionId, 'director_warning', { reason: 'missing setTutorMode; defaulted to explain' })
 
+    // FORCE_ARTIFACT (§16 item 3): force a spawnArtifact on the next eligible turn for
+    // deterministic acceptance testing. "true" → slider-sim; a template id → that one.
+    const forced = process.env.FORCE_ARTIFACT
+    if (forced && !isTurn1 && !offMap && currentNodeId && !tools.some((t) => t.name === 'spawnArtifact')) {
+      const tpl = forced === 'true' ? 'slider-sim' : forced
+      if ((V1_TEMPLATE_IDS as readonly string[]).includes(tpl)) {
+        const activeLoop = await prisma.loop.findFirst({ where: { nodeId: currentNodeId, closedAt: null } })
+        const loopQuestion = activeLoop?.question ?? map.heldQuestion
+        tools.splice(1, tools.length, { name: 'spawnArtifact', input: { templateId: tpl, nodeId: currentNodeId, loopQuestion } })
+      }
+    }
+
     const modeTool = tools.find((t) => t.name === 'setTutorMode')
     const note = (modeTool?.input?.note as string | undefined) ?? undefined
     const isSynthesisNote = !!note && note.toLowerCase().includes('synthesis')
@@ -383,7 +408,7 @@ async function pipelineTurn(
           isReturnTurn1: resolved.isReturnTurn1,
         }
 
-    await prisma.directorDecision.create({
+    const decisionRow = await prisma.directorDecision.create({
       data: {
         sessionId,
         turn: turnNumber,
@@ -395,7 +420,7 @@ async function pipelineTurn(
       },
     })
     await logEvent(sessionId, 'director_decision', { turn: turnNumber, tools: tools.map((t) => t.name) })
-    sse.emit('director_decision', { turn: turnNumber, signals, tools, rationale })
+    sse.emit('director_decision', { turn: turnNumber, decisionId: decisionRow.id, signals, tools, rationale })
 
     // Collect async generator jobs (only on non-turn-1, on-map turns — already stripped).
     const generatorJobs: Array<() => Promise<void>> = []
@@ -751,7 +776,12 @@ async function runSpawnArtifact(
       await logEvent(sessionId, 'generation_failed', { kind: 'artifact', reason: 'node not found' })
       return
     }
-    const props = await llm.generatorArtifact(ctx, { templateId, node: { title: node.title, summary: node.summary }, loopQuestion })
+    const props = await llm.generatorArtifact(ctx, {
+      templateId,
+      propSpec: TEMPLATE_PROMPT_SPECS[templateId] ?? '',
+      node: { title: node.title, summary: node.summary },
+      loopQuestion,
+    })
     if (!props) {
       await logEvent(sessionId, 'generation_failed', { kind: 'artifact', reason: 'null props' })
       return

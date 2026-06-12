@@ -4,6 +4,7 @@
 // every response — under mock too — so the cost tests exercise real accounting.
 
 import { prisma } from './prisma'
+import { logEvent } from './events'
 import { costOf, UsageTokens } from './pricing'
 import { isMockMode, mockDequeue, isSimulatedFailure } from './mockStore'
 import {
@@ -38,7 +39,7 @@ export class MockQueueEmptyError extends Error {
 }
 
 const TUTOR_MODEL = process.env.TUTOR_MODEL ?? 'claude-sonnet-4-6'
-const HAIKU_MODEL = process.env.HAIKU_MODEL ?? 'claude-haiku-4-5'
+const HAIKU_MODEL = process.env.HAIKU_MODEL ?? 'claude-haiku-4-5-20251001'
 
 async function applyCost(ctx: LlmCtx, sonnet: boolean, usage: UsageTokens | undefined) {
   if (!ctx.sessionId || !usage) return
@@ -72,7 +73,7 @@ async function realHaikuJSON<T>(ctx: LlmCtx, system: string, user: string): Prom
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await client.messages.create({
       model: HAIKU_MODEL,
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: system + '\n\nRespond with ONLY a single JSON object, no prose, no code fence.',
       messages: [{ role: 'user', content: user }],
     })
@@ -168,6 +169,7 @@ export async function tutorStream(
       await sleep(5)
     }
     await applyCost(ctx, true, resp.usage)
+    await logTutorUsage(ctx, resp.usage)
     return { text: resp.text, usage: resp.usage }
   }
   const client = (await realClient()) as {
@@ -188,7 +190,19 @@ export async function tutorStream(
   }
   const final = await stream.finalMessage()
   await applyCost(ctx, true, final.usage)
+  await logTutorUsage(ctx, final.usage)
   return { text, usage: final.usage }
+}
+
+// §14/§16-9 cache regression: log the Tutor usage so turn-2 cache_read_input_tokens > 0
+// is observable (the anchor is the cached prefix).
+async function logTutorUsage(ctx: LlmCtx, usage: UsageTokens | undefined) {
+  if (!ctx.sessionId || !usage) return
+  await logEvent(ctx.sessionId, 'tutor_usage', {
+    input_tokens: usage.input_tokens ?? 0,
+    output_tokens: usage.output_tokens ?? 0,
+    cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+  })
 }
 
 // ── generator-map (non-critical: empty → empty list) ────────────────────────
