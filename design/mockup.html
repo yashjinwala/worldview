@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Worldview — Session Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,300;1,9..144,400;1,9..144,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+
+/* ─── Design Tokens ──────────────────────────────────────────────────── */
+:root {
+  /* Surfaces — warm night palette */
+  --bg:          #0b0a08;
+  --s1:          #131109;
+  --s2:          #1a1813;
+  --s3:          #22201a;
+  --s4:          #2c2921;
+  --border:      #2e2b23;
+  --border-sub:  #1e1c16;
+
+  /* Text */
+  --text:        #e4dace;
+  --text-2:      #9e9080;
+  --text-3:      #5a5248;
+  --text-4:      #3a3530;
+
+  /* Ember — the brand glow */
+  --ember:       #e07040;
+  --ember-dim:   #9c4e2c;
+  --ember-glow:  rgba(224,112,64,0.20);
+  --ember-hot:   rgba(224,112,64,0.42);
+
+  /* Node state colors */
+  --c-settled:   #3d7a52;
+  --c-visited:   #58789e;
+  --c-frontier:  #3e3a32;
+
+  /* Typography */
+  --serif:  'Fraunces', Georgia, 'Times New Roman', serif;
+  --sans:   'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Radius */
+  --r:     5px;
+  --r-md:  8px;
+  --r-lg:  12px;
+}
+
+/* ─── Reset ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Header ─────────────────────────────────────────────────────────── */
+.header {
+  height: 54px;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 14px;
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 30;
+  flex-shrink: 0;
+}
+
+.logo {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 14.5px;
+  color: var(--text-2);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.h-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.session-title {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 13.5px;
+  color: var(--text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.cost-meter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cost-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-settled);
+  box-shadow: 0 0 7px rgba(61,122,82,0.7);
+  flex-shrink: 0;
+}
+
+.cost-label {
+  font-size: 11.5px;
+  color: var(--text-2);
+  font-feature-settings: 'tnum';
+  letter-spacing: 0.02em;
+}
+
+.conductor-toggle {
+  background: var(--s3);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 400;
+  padding: 5px 12px;
+  border-radius: var(--r);
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.conductor-toggle:hover {
+  background: var(--s4);
+  border-color: var(--ember-dim);
+  color: var(--text);
+}
+
+/* ─── Main layout ────────────────────────────────────────────────────── */
+.app-body {
+  display: flex;
+  height: calc(100vh - 54px);
+}
+
+/* ─── Chat Pane ──────────────────────────────────────────────────────── */
+.chat-pane {
+  width: 55%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 30px 30px 16px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.messages::-webkit-scrollbar { width: 3px; }
+.messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Guide message */
+.msg-guide {
+  margin-bottom: 22px;
+}
+
+.msg-label {
+  font-size: 10px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--ember-dim);
+  margin-bottom: 7px;
+  display: block;
+}
+
+.msg-body {
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 300;
+  color: var(--text);
+  line-height: 1.68;
+}
+
+.msg-body p + p {
+  margin-top: 10px;
+}
+
+/* User message */
+.msg-user {
+  align-self: flex-end;
+  max-width: 68%;
+  margin-bottom: 22px;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg) var(--r-lg) 3px var(--r-lg);
+  padding: 10px 16px;
+  font-size: 13.5px;
+  font-weight: 300;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+/* ─── Artifact Card ──────────────────────────────────────────────────── */
+.artifact-card {
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--ember);
+  border-radius: var(--r-lg);
+  margin-bottom: 24px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+}
+
+.artifact-head {
+  padding: 15px 20px 12px;
+  border-bottom: 1px solid var(--border-sub);
+}
+
+.artifact-tag {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-weight: 500;
+  color: var(--ember);
+  margin-bottom: 5px;
+}
+
+.artifact-title {
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.artifact-body {
+  padding: 20px 20px 16px;
+}
+
+/* Slider */
+.slider-section {
+  margin-bottom: 18px;
+}
+
+.slider-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 11px;
+}
+
+.slider-var {
+  font-size: 12px;
+  color: var(--text-2);
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.slider-val {
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 500;
+  color: var(--ember);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  transition: color 0.25s;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  background: var(--s4); /* updated by JS */
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ember);
+  box-shadow: 0 0 10px var(--ember-hot);
+  cursor: grab;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+input[type="range"]::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  box-shadow: 0 0 18px var(--ember-hot);
+  transform: scale(1.1);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--ember);
+  border: none;
+  cursor: grab;
+}
+
+.slider-extremes {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-4);
+}
+
+/* Sim output */
+.sim-headline {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1.35;
+  margin-bottom: 6px;
+  min-height: 44px;
+  transition: color 0.3s;
+  letter-spacing: -0.015em;
+}
+
+.sim-detail {
+  font-size: 12.5px;
+  color: var(--text-2);
+  font-weight: 300;
+  line-height: 1.55;
+  margin-bottom: 18px;
+  min-height: 38px;
+}
+
+/* Comparison bars */
+.bars-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+
+.bar-name {
+  font-size: 11.5px;
+  color: var(--text-2);
+  width: 116px;
+  flex-shrink: 0;
+  line-height: 1.3;
+}
+
+.bar-track {
+  flex: 1;
+  height: 7px;
+  background: var(--s4);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.28s cubic-bezier(0.4,0,0.2,1), background-color 0.28s;
+}
+
+.bar-amt {
+  font-size: 11px;
+  color: var(--text-2);
+  width: 50px;
+  text-align: right;
+  flex-shrink: 0;
+  font-feature-settings: 'tnum';
+}
+
+/* Artifact footer */
+.artifact-foot {
+  padding: 13px 20px 15px;
+  border-top: 1px solid var(--border-sub);
+}
+
+.artifact-closing {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  font-weight: 300;
+  color: var(--text-2);
+  line-height: 1.58;
+}
+
+.artifact-closing em {
+  color: var(--ember);
+  font-style: normal;
+  font-weight: 400;
+}
+
+/* ─── Chat Input ─────────────────────────────────────────────────────── */
+.input-area {
+  flex-shrink: 0;
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.input-row {
+  display: flex;
+  align-items: center;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 2px 4px 2px 16px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input-row:focus-within {
+  border-color: var(--ember-dim);
+  box-shadow: 0 0 0 3px var(--ember-glow);
+}
+
+.chat-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 300;
+  padding: 9px 0;
+}
+
+.chat-input::placeholder {
+  color: var(--text-3);
+  font-style: italic;
+}
+
+.send-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  background: var(--ember);
+  border: none;
+  border-radius: 7px;
+  color: #0b0a08;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+}
+.send-btn:hover { background: #f08050; }
+.send-btn:active { transform: scale(0.95); }
+
+/* ─── Map Pane ───────────────────────────────────────────────────────── */
+.map-pane {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--s1);
+}
+
+/* subtle grid texture */
+.map-pane::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.014) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.map-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.map-svg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* ─── Map Nodes ──────────────────────────────────────────────────────── */
+.mn {
+  position: absolute;
+  padding: 9px 13px;
+  border-radius: var(--r-md);
+  font-family: var(--sans);
+  font-size: 12px;
+  line-height: 1.35;
+  cursor: pointer;
+  width: 185px;
+  transition: opacity 0.3s, box-shadow 0.3s;
+  user-select: none;
+}
+
+.mn-title {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  color: inherit;
+}
+
+/* Root */
+.mn-root {
+  background: var(--s3);
+  border: 1.5px solid var(--border);
+  color: var(--text);
+  width: 154px;
+  font-size: 11.5px;
+}
+
+/* Settled */
+.mn-settled {
+  background: rgba(61,122,82,0.09);
+  border: 1.5px solid rgba(61,122,82,0.38);
+  color: var(--text-2);
+  opacity: 0.78;
+}
+.mn-settled .mn-title { font-size: 11.5px; }
+
+.settled-check {
+  display: inline-block;
+  color: var(--c-settled);
+  margin-right: 3px;
+  font-size: 9px;
+  vertical-align: middle;
+  position: relative;
+  top: -0.5px;
+}
+
+/* Visited */
+.mn-visited {
+  background: var(--s2);
+  border: 1.5px solid var(--border);
+  color: var(--text);
+}
+
+/* Current — open loop, accent ring, pulsing glow */
+.mn-current {
+  background: var(--s3);
+  border: 2px solid var(--ember);
+  color: var(--text);
+  box-shadow:
+    0 0 0 4px var(--ember-glow),
+    0 0 22px 6px var(--ember-glow);
+  animation: pulse-glow 2.8s ease-in-out infinite;
+  z-index: 3;
+}
+
+/* Frontier — dim, dashed */
+.mn-frontier {
+  background: transparent;
+  border: 1.5px dashed var(--text-4);
+  color: var(--text-3);
+  opacity: 0.48;
+  pointer-events: none;
+}
+
+/* New frontier — fades in */
+.mn-frontier-new {
+  background: transparent;
+  border: 1.5px dashed var(--text-4);
+  color: var(--text-3);
+  animation: fade-in-node 1.6s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+/* Artifact badge */
+.artifact-pin {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 18px;
+  height: 18px;
+  background: var(--ember);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: var(--bg);
+  box-shadow: 0 0 8px var(--ember-glow);
+  z-index: 4;
+}
+
+/* ─── Map Legend ─────────────────────────────────────────────────────── */
+.map-legend {
+  position: absolute;
+  bottom: 22px;
+  left: 16px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  color: var(--text-3);
+  letter-spacing: 0.02em;
+}
+
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* ─── Conductor Pane ─────────────────────────────────────────────────── */
+.conductor-pane {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: rgba(11,10,8,0.94);
+  border-top: 1px solid rgba(255,255,255,0.05);
+  box-shadow: 0 -12px 40px rgba(0,0,0,0.55);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  display: flex;
+  flex-direction: column;
+}
+
+.cond-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-sub);
+  flex-shrink: 0;
+}
+
+.cond-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.cond-collapse {
+  font-size: 11px;
+  color: var(--text-4);
+  cursor: pointer;
+  user-select: none;
+  letter-spacing: 0.02em;
+}
+.cond-collapse:hover { color: var(--text-2); }
+
+.cond-rows {
+  padding: 6px 16px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  max-height: 165px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-sub) transparent;
+}
+
+/* Individual conductor row */
+.cond-row {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-sub);
+  align-items: start;
+}
+.cond-row:last-child { border-bottom: none; }
+
+.cond-turn {
+  font-size: 10.5px;
+  color: var(--text-3);
+  font-feature-settings: 'tnum';
+  padding-top: 2px;
+  white-space: nowrap;
+}
+
+.cond-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cond-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.chip {
+  padding: 1px 7px;
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.015em;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+
+.chip-cold    { background: rgba(80,80,95,0.22);  color: #7a8aa8; border: 1px solid rgba(80,80,95,0.3);  }
+.chip-lean    { background: rgba(61,122,82,0.18); color: #5aac72; border: 1px solid rgba(61,122,82,0.32); }
+.chip-far     { background: rgba(80,70,55,0.22);  color: var(--text-2); border: 1px solid rgba(80,70,55,0.32); }
+.chip-near    { background: rgba(224,112,64,0.16); color: var(--ember); border: 1px solid rgba(224,112,64,0.32); }
+
+.cond-tools {
+  font-size: 10.5px;
+  color: #6888a8;
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', monospace;
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+}
+
+.cond-rationale {
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--text-2);
+  font-weight: 300;
+  line-height: 1.45;
+}
+
+.cond-footer {
+  padding: 7px 16px;
+  border-top: 1px solid var(--border-sub);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.footer-pip {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.sep { color: var(--text-4); margin: 0 4px; }
+
+/* ─── Animations ─────────────────────────────────────────────────────── */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 3px var(--ember-glow),
+      0 0 18px 5px var(--ember-glow);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px var(--ember-hot),
+      0 0 30px 10px var(--ember-hot);
+  }
+}
+
+@keyframes fade-in-node {
+  from {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.96);
+  }
+  to {
+    opacity: 0.48;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* ─── Selection ──────────────────────────────────────────────────────── */
+::selection {
+  background: var(--ember-glow);
+  color: var(--text);
+}
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!--  HEADER                                                             -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="header">
+  <span class="logo">Worldview</span>
+  <div class="h-divider"></div>
+  <span class="session-title">Is the US national debt actually dangerous — and how would we know?</span>
+  <div class="header-right">
+    <div class="cost-meter">
+      <span class="cost-dot" title="Session cost: $0.11"></span>
+      <span class="cost-label">$0.11</span>
+    </div>
+    <button class="conductor-toggle">Conductor ↑</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!--  MAIN                                                               -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<div class="app-body">
+
+  <!-- ─── CHAT PANE ─────────────────────────────────────────────── -->
+  <div class="chat-pane">
+    <div class="messages" id="messages">
+
+      <!-- Turn 1 — Guide -->
+      <div class="msg-guide">
+        <span class="msg-label">Guide &middot; Turn 1</span>
+        <div class="msg-body">
+          <p>Here's the strange part: serious people have predicted a US debt crisis since 1981, and they've been wrong for forty years straight. Either they're all fools, or they're early. Want to figure out which?</p>
+        </div>
+      </div>
+
+      <!-- Turn 2 — User -->
+      <div class="msg-user">ok yes. why have they been wrong?</div>
+
+      <!-- Turn 3 — Guide -->
+      <div class="msg-guide">
+        <span class="msg-label">Guide &middot; Turn 3</span>
+        <div class="msg-body">
+          <p>About $7 trillion is owed to other parts of the US government itself — Social Security's trust fund, mostly. Another $8 trillion sits with the Federal Reserve, domestic banks, and pension funds. Foreign governments hold roughly $7.5 trillion, with Japan ($1.1T) and China ($0.8T) as the two largest creditors — both of whom need dollar-denominated assets to run their own economies.</p>
+          <p>So the actual picture: most of the debt is the US owing itself, and the largest foreign holders are allies with strong reasons to stay in. Which raises the obvious next question — if it's so circular, what part of it actually matters?</p>
+        </div>
+      </div>
+
+      <!-- Turn 4 — User -->
+      <div class="msg-user">ok but that just sounds like it's fine forever, which can't be right</div>
+
+      <!-- Turn 5 — Guide (challenge mode) -->
+      <div class="msg-guide">
+        <span class="msg-label">Guide &middot; Turn 5</span>
+        <div class="msg-body">
+          <p>You're right to push on that — but "fine forever" is smuggling in an assumption. "The US owes itself" is true only as long as interest rates stay low. At 2%, the annual interest payment is roughly $700B — heavy but manageable. At 5%, it's $1.75 trillion, which is more than the military and Medicare combined. The size of the debt is almost beside the point. What matters is the rate the market charges to hold it — and that can move fast.</p>
+          <p>Here, drag this.</p>
+        </div>
+      </div>
+
+      <!-- ── ARTIFACT CARD ─────────────────────────────────────── -->
+      <div class="artifact-card">
+        <div class="artifact-head">
+          <span class="artifact-tag">interactive &middot; slider-sim</span>
+          <h2 class="artifact-title">When does the interest become the problem?</h2>
+        </div>
+
+        <div class="artifact-body">
+          <!-- Slider -->
+          <div class="slider-section">
+            <div class="slider-top">
+              <span class="slider-var">Avg. interest rate on US debt<br><span style="color:var(--text-3);font-size:10.5px;">~$35 trillion outstanding (2024 est.)</span></span>
+              <span class="slider-val" id="rate-display">3.2%</span>
+            </div>
+            <input type="range" id="rate-slider" min="1" max="8" step="0.1" value="3.2">
+            <div class="slider-extremes">
+              <span>1% — near post-2008 floor</span>
+              <span>8% — early 1980s peak</span>
+            </div>
+          </div>
+
+          <!-- Computed output -->
+          <div class="sim-headline" id="sim-headline">Interest now exceeds the entire defense budget.</div>
+          <div class="sim-detail" id="sim-detail">At 3.2%, annual interest payments on $35T of debt run roughly $1.12T — more than the entire Pentagon budget ($850B). These are real cash payments out the door every year, before a single program is funded.</div>
+
+          <!-- Comparison bars -->
+          <div class="bars-label">Annual spending comparison</div>
+
+          <div class="bar-row">
+            <span class="bar-name" id="bar-interest-label">Interest ($1.12T)</span>
+            <div class="bar-track">
+              <div class="bar-fill" id="bar-interest" style="width:37.3%; background:#df7240;"></div>
+            </div>
+            <span class="bar-amt" id="bar-interest-amt">$1.12T</span>
+          </div>
+
+          <div class="bar-row">
+            <span class="bar-name">Defense ($850B)</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:28.3%; background:var(--c-visited); opacity:0.7;"></div>
+            </div>
+            <span class="bar-amt">$850B</span>
+          </div>
+
+          <div class="bar-row">
+            <span class="bar-name">Medicare ($1.0T)</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:33.3%; background:var(--c-visited); opacity:0.7;"></div>
+            </div>
+            <span class="bar-amt">$1.0T</span>
+          </div>
+        </div><!-- /artifact-body -->
+
+        <div class="artifact-foot">
+          <p class="artifact-closing">So the danger was never the number — it's the rate. Which raises the real question: <em>what sets the rate?</em></p>
+        </div>
+      </div><!-- /artifact-card -->
+
+    </div><!-- /messages -->
+
+    <!-- Chat input -->
+    <div class="input-area">
+      <div class="input-row">
+        <input class="chat-input" type="text" id="chat-input" placeholder="Pull the thread…" autocomplete="off">
+        <button class="send-btn" aria-label="Send">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 6.5h9M8 3l3.5 3.5L8 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div><!-- /chat-pane -->
+
+  <!-- ─── MAP PANE ───────────────────────────────────────────────── -->
+  <div class="map-pane">
+    <div class="map-canvas" id="map-canvas">
+
+      <!-- SVG edges (drawn by JS below) -->
+      <svg class="map-svg" id="map-svg" aria-hidden="true"></svg>
+
+      <!-- ── Root node ──────────────────────────────────────── -->
+      <div class="mn mn-root" style="left:22px; top:232px;" title="The held question">
+        <span class="mn-title">Is the debt actually dangerous?</span>
+      </div>
+
+      <!-- ── Settled ────────────────────────────────────────── -->
+      <div class="mn mn-settled" style="left:224px; top:72px;" title="Settled — click to revisit">
+        <span class="mn-title"><span class="settled-check">✓</span>Who is the debt actually owed to?</span>
+      </div>
+
+      <!-- ── Visited ────────────────────────────────────────── -->
+      <div class="mn mn-visited" style="left:224px; top:162px;" title="Visited">
+        <span class="mn-title">40 years of wrong predictions</span>
+      </div>
+
+      <!-- ── Current + artifact badge ──────────────────────── -->
+      <div class="mn mn-current" style="left:224px; top:252px;" title="Current node — open loop">
+        <span class="mn-title">When interest becomes the problem</span>
+        <div class="artifact-pin" title="Artifact unlocked">&#9670;</div>
+      </div>
+
+      <!-- ── Frontier 1 ─────────────────────────────────────── -->
+      <div class="mn mn-frontier" style="left:224px; top:358px;" aria-hidden="true">
+        <span class="mn-title">Why Japan owes 260% and nothing happened</span>
+      </div>
+
+      <!-- ── Frontier 2 (new — fade in) ────────────────────── -->
+      <div class="mn mn-frontier-new" style="left:224px; top:456px;" aria-hidden="true">
+        <span class="mn-title">What actually sets interest rates?</span>
+      </div>
+
+      <!-- ── Legend ─────────────────────────────────────────── -->
+      <div class="map-legend">
+        <div class="legend-row">
+          <div class="legend-swatch" style="background:var(--ember); box-shadow:0 0 6px var(--ember-glow);"></div>
+          <span>current &middot; open loop</span>
+        </div>
+        <div class="legend-row">
+          <div class="legend-swatch" style="background:var(--s3); border:1px solid var(--border);"></div>
+          <span>visited</span>
+        </div>
+        <div class="legend-row">
+          <div class="legend-swatch" style="background:rgba(61,122,82,0.18); border:1px solid rgba(61,122,82,0.4);"></div>
+          <span>settled ✓</span>
+        </div>
+        <div class="legend-row">
+          <div class="legend-swatch" style="background:transparent; border:1.5px dashed var(--text-4); opacity:0.6;"></div>
+          <span>frontier</span>
+        </div>
+      </div>
+
+    </div><!-- /map-canvas -->
+
+    <!-- ─── Conductor Drawer (open) ──────────────────────────── -->
+    <div class="conductor-pane" id="conductor-pane">
+      <div class="cond-header">
+        <span class="cond-title">Conductor</span>
+        <span class="cond-collapse" id="cond-collapse">↓ collapse</span>
+      </div>
+
+      <div class="cond-rows">
+
+        <!-- Turn 1 -->
+        <div class="cond-row">
+          <span class="cond-turn">Turn 1</span>
+          <div class="cond-row-body">
+            <div class="cond-chips">
+              <span class="chip chip-cold">cold start</span>
+            </div>
+            <div class="cond-tools">setTutorMode(explain)</div>
+            <div class="cond-rationale">"Open with the 40-years-wrong hook; no lecture."</div>
+          </div>
+        </div>
+
+        <!-- Turn 3 -->
+        <div class="cond-row">
+          <span class="cond-turn">Turn 3</span>
+          <div class="cond-row-body">
+            <div class="cond-chips">
+              <span class="chip chip-lean">leaning in</span>
+              <span class="chip chip-far">far from click &middot; 0.3</span>
+            </div>
+            <div class="cond-tools">setTutorMode(explain) + expandMap(deepen)</div>
+            <div class="cond-rationale">"Engaged but far; give the next layer underneath."</div>
+          </div>
+        </div>
+
+        <!-- Turn 5 -->
+        <div class="cond-row">
+          <span class="cond-turn">Turn 5</span>
+          <div class="cond-row-body">
+            <div class="cond-chips">
+              <span class="chip chip-lean">leaning in</span>
+              <span class="chip chip-near">near click &middot; 0.75</span>
+            </div>
+            <div class="cond-tools">setTutorMode(challenge) + spawnArtifact(slider-sim)</div>
+            <div class="cond-rationale">"Confident claim near the click; challenge it and let the slider land it."</div>
+          </div>
+        </div>
+
+      </div><!-- /cond-rows -->
+
+      <div class="cond-footer">
+        <span class="footer-pip" style="background:var(--ember);"></span>
+        3 loops open
+        <span class="sep">&middot;</span>
+        <span class="footer-pip" style="background:var(--c-settled);"></span>
+        1 closed
+        <span class="sep">&middot;</span>
+        $0.11
+      </div>
+    </div><!-- /conductor-pane -->
+
+  </div><!-- /map-pane -->
+</div><!-- /app-body -->
+
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!--  SCRIPTS                                                            -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  'use strict';
+
+  /* ── Slider sim ─────────────────────────────────────────────────── */
+  const DEBT = 35;          // trillion USD
+  const MAX_BAR = 3.0;      // scale cap for bars (trillion)
+
+  const slider       = document.getElementById('rate-slider');
+  const rateDisplay  = document.getElementById('rate-display');
+  const simHeadline  = document.getElementById('sim-headline');
+  const simDetail    = document.getElementById('sim-detail');
+  const barInterest  = document.getElementById('bar-interest');
+  const barLabel     = document.getElementById('bar-interest-label');
+  const barAmt       = document.getElementById('bar-interest-amt');
+
+  function fmt(t) {
+    if (t < 1) return '$' + (t * 1000).toFixed(0) + 'B';
+    return '$' + t.toFixed(2) + 'T';
+  }
+
+  function getState(rate, interest) {
+    if (rate <= 1.6) return {
+      headline: 'Well within historical range — the interest bill is a manageable line item.',
+      detail:   'At ' + rate.toFixed(1) + '%, annual interest runs ' + fmt(interest) + '. This is roughly what the US was paying in 2021. Low rates are the condition under which the debt really is "fine."',
+      color:    '#3d7a52'
+    };
+    if (rate <= 2.5) return {
+      headline: 'Heavy but manageable — approaching defense budget territory.',
+      detail:   'At ' + rate.toFixed(1) + '%, interest hits ' + fmt(interest) + '. Still below the Pentagon\'s annual budget, but the gap is narrowing fast. A single percentage point move changes the math noticeably.',
+      color:    '#7a8a3a'
+    };
+    if (rate <= 4.3) return {
+      headline: 'Interest now exceeds the entire defense budget.',
+      detail:   'At ' + rate.toFixed(1) + '%, the government pays ' + fmt(interest) + ' to service the debt — more than every weapon, soldier, and base combined ($850B). This is where "the debt is fine" stops being a defensible sentence.',
+      color:    '#df7240'
+    };
+    if (rate <= 6.2) return {
+      headline: 'Interest now exceeds defense and Medicare combined.',
+      detail:   'At ' + rate.toFixed(1) + '%, the annual interest bill is ' + fmt(interest) + ' — more than the two biggest spending categories put together. Every new program, tax cut, or crisis response has to compete with this fixed cost.',
+      color:    '#c84820'
+    };
+    return {
+      headline: 'Interest consumes more than all discretionary spending combined.',
+      detail:   'At ' + rate.toFixed(1) + '%, servicing the debt costs ' + fmt(interest) + ' per year — more than everything Congress appropriates in a year across defense, education, infrastructure, and research. This is not a slow decline; this is the budget eaten from the inside.',
+      color:    '#b02c10'
+    };
+  }
+
+  function updateSlider(rate) {
+    const interest = (rate / 100) * DEBT;
+    const state    = getState(rate, interest);
+
+    /* rate display */
+    rateDisplay.textContent = rate.toFixed(1) + '%';
+
+    /* slider track fill */
+    const pct = ((rate - 1) / (8 - 1)) * 100;
+    slider.style.background =
+      'linear-gradient(to right, ' +
+        state.color + ' 0%, ' +
+        state.color + ' ' + pct + '%, ' +
+        'var(--s4) ' + pct + '%, ' +
+        'var(--s4) 100%)';
+
+    /* bar */
+    const barPct = Math.min((interest / MAX_BAR) * 100, 100);
+    barInterest.style.width = barPct + '%';
+    barInterest.style.backgroundColor = state.color;
+
+    /* labels */
+    barLabel.textContent = 'Interest (' + fmt(interest) + ')';
+    barAmt.textContent   = fmt(interest);
+
+    /* text */
+    simHeadline.textContent = state.headline;
+    simDetail.textContent   = state.detail;
+  }
+
+  slider.addEventListener('input', function () {
+    updateSlider(parseFloat(this.value));
+  });
+  updateSlider(3.2);
+
+  /* ── Draw map edges ─────────────────────────────────────────────── */
+  /*
+   * Node centers (px from left/top of map-pane):
+   *   Root:        left:22  top:232  w:154 h:~50  → right-center: (176, 257)
+   *   Settled:     left:224 top:72   w:185         → left-center:  (224,  97)
+   *   Visited:     left:224 top:162                → left-center:  (224, 187)
+   *   Current:     left:224 top:252                → left-center:  (224, 277)
+   *   Frontier:    left:224 top:358                → left-center:  (224, 383)
+   *   Frontier-new:left:224 top:456                → left-center:  (224, 481)
+   */
+  const svg = document.getElementById('map-svg');
+
+  const edges = [
+    { x1:176, y1:257, x2:224, y2: 97, style:'settled'  },
+    { x1:176, y1:257, x2:224, y2:187, style:'visited'  },
+    { x1:176, y1:257, x2:224, y2:277, style:'current'  },
+    { x1:176, y1:257, x2:224, y2:383, style:'frontier' },
+    { x1:176, y1:257, x2:224, y2:481, style:'frontier' },
+  ];
+
+  const styleMap = {
+    settled:  { stroke:'rgba(61,122,82,0.32)',   sw:1.5, dash:''    },
+    visited:  { stroke:'rgba(88,120,158,0.38)',  sw:1.5, dash:''    },
+    current:  { stroke:'rgba(224,112,64,0.55)',  sw:2,   dash:''    },
+    frontier: { stroke:'rgba(80,76,64,0.28)',    sw:1,   dash:'5 4' },
+  };
+
+  edges.forEach(function (e) {
+    const s  = styleMap[e.style];
+    const cx = e.x1 + (e.x2 - e.x1) * 0.5;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d',
+      'M ' + e.x1 + ',' + e.y1 +
+      ' C ' + cx  + ',' + e.y1 +
+      ' '   + cx  + ',' + e.y2 +
+      ' '   + e.x2 + ',' + e.y2
+    );
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', s.stroke);
+    path.setAttribute('stroke-width', s.sw);
+    if (s.dash) path.setAttribute('stroke-dasharray', s.dash);
+    svg.appendChild(path);
+  });
+
+  /* ── Scroll chat to bottom on load ─────────────────────────────── */
+  const msgs = document.getElementById('messages');
+  msgs.scrollTop = msgs.scrollHeight;
+
+  /* ── Conductor collapse toggle (UI demo) ───────────────────────── */
+  const condPane     = document.getElementById('conductor-pane');
+  const condCollapse = document.getElementById('cond-collapse');
+  let open = true;
+
+  condCollapse.addEventListener('click', function () {
+    open = !open;
+    if (open) {
+      condPane.style.transform = '';
+      condCollapse.textContent = '↓ collapse';
+    } else {
+      /* show only the header */
+      condPane.style.transform = 'translateY(calc(100% - 36px))';
+      condCollapse.textContent = '↑ expand';
+    }
+    condPane.style.transition = 'transform 0.3s cubic-bezier(0.4,0,0.2,1)';
+  });
+
+  /* ── Conductor toggle in header ─────────────────────────────────── */
+  document.querySelector('.conductor-toggle').addEventListener('click', function () {
+    condCollapse.click();
+  });
+
+  /* ── Chat input: enter to "send" (no-op demo) ───────────────────── */
+  document.getElementById('chat-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && this.value.trim()) {
+      /* mockup: clear and refocus */
+      this.value = '';
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>
