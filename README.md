@@ -13,6 +13,7 @@ that will never see the implementation) live in this repo:
 - `docs/PRD.md` — the product: vision, metrics, the worked example
 - `docs/TDD.md` — the build contract: pipeline, prompts, schema, acceptance checklist (§16)
 - `design/mockup.html` — the canonical design (open it in a browser)
+- `design/tokens.css` — design tokens: full base + artifact/data-viz system for all 20 §10 templates
 - `tests/` — the spec-derived contract suite, red by design until built
 
 License: MIT

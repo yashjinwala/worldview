@@ -1,0 +1,722 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   WORLDVIEW — Design Tokens
+   Source of truth: design/mockup.html (CSS + JS). Values extracted directly
+   from the mockup carry no annotation; all other values are marked /* derived */.
+   Usage: @import in src/app/globals.css before @tailwind / @import "tailwindcss".
+   Tailwind v4 @theme wiring block is at the bottom of this file.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     A · BASE PRIMITIVES
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     A1 · GROUND + SURFACES
+     Warm deep-night palette. Five levels extracted from mockup.html :root.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --color-ground: #0b0a08;   /* page background — the true floor */
+  --color-s1:     #131109;   /* map pane bg, header bg */
+  --color-s2:     #1a1813;   /* card surface, user message bg, input bg */
+  --color-s3:     #22201a;   /* current-node bg, conductor-toggle bg, secondary btn */
+  --color-s4:     #2c2921;   /* bar tracks, slider unfilled track, deepest hover */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     A2 · TEXT HIERARCHY
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --color-text-primary:   #e4dace;   /* main body — guide message prose */
+  --color-text-secondary: #9e9080;   /* labels, muted prose, user message text */
+  --color-text-muted:     #5a5248;   /* captions, axis tick labels, secondary chrome */
+  --color-text-ghost:     #3a3530;   /* slider extremes, placeholder-adjacent, deepest */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     A3 · BORDERS
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --color-border:     #2e2b23;   /* primary: card + pane + header borders */
+  --color-border-sub: #1e1c16;   /* intra-card: conductor row separators, artifact dividers */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     A4 · EMBER ACCENT — the brand
+     Current node, active controls, interactive highlights, the glow itself.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --color-ember:       #e07040;                /* primary accent */
+  --color-ember-dim:   #9c4e2c;                /* dimmed: focus ring, ghost label */
+  --color-ember-hover: #f08050;                /* send-btn hover — extracted from mockup JS */
+  --color-ember-glow:  rgba(224,112,64,0.20);  /* soft glow wash */
+  --color-ember-hot:   rgba(224,112,64,0.42);  /* intensified: pulse peak, thumb active shadow */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     A5 · NODE STATE COLORS
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --color-node-settled:  #3d7a52;              /* settled ✓: border, check mark, cost-dot normal */
+  --color-node-visited:  #58789e;              /* visited: comparison bars, chart curves */
+  --color-node-frontier: #3e3a32;              /* frontier fill reference (node bg is transparent) */
+  --color-node-current:  var(--color-ember);   /* alias — current node ring color */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     A6 · SPECIAL / SEMANTIC
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --color-glow:        var(--color-ember-glow);   /* semantic alias: "the glow" */
+  --color-safety-note: #7a8aa8;   /* safety card text — cool blue-gray, low alarm */ /* derived */
+  --color-code:        #6888a8;   /* conductor tool-call monospace text */
+  --color-map-grid:    rgba(255,255,255,0.014);   /* map pane grid texture */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     A7 · SEVERITY SCALE
+     Piecewise regime colors extracted from slider-sim JS (getState function).
+     Reusable for any continuous-variable template with qualitative breakpoints.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --color-sev-safe:    #3d7a52;   /* low / sustainable regime */
+  --color-sev-warn:    #7a8a3a;   /* mild warning — extracted from slider-sim JS */
+  --color-sev-caution: #df7240;   /* caution — extracted from slider-sim JS */
+  --color-sev-danger:  #c84820;   /* danger — extracted from slider-sim JS */
+  --color-sev-crisis:  #b02c10;   /* crisis — extracted from slider-sim JS */
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     A8 · TYPOGRAPHY — FAMILIES
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  --font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-sans:  'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:  'SF Mono', 'Fira Code', 'Fira Mono', monospace;   /* derived — conductor tool calls */
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     A9 · TYPE SCALE
+     Named steps derived from mockup measurements. Each step provides the
+     five properties needed to apply it in one place: size / line-height /
+     weight / family / letter-spacing (where non-zero).
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* display — large numeric readouts: slider value thumb, scale-ladder callout */
+  --text-display-size:   30px;
+  --text-display-lh:     1;
+  --text-display-weight: 500;
+  --text-display-family: var(--font-serif);
+  --text-display-ls:     -0.02em;
+
+  /* title — artifact card headline; rendered in Fraunces in the card header */
+  --text-title-size:   19px;
+  --text-title-lh:     1.25;
+  --text-title-weight: 500;
+  --text-title-family: var(--font-serif);
+  --text-title-ls:     -0.02em;
+
+  /* heading — sim headline within artifact body; section heads */
+  --text-heading-size:   16px;
+  --text-heading-lh:     1.35;
+  --text-heading-weight: 400;
+  --text-heading-family: var(--font-serif);
+  --text-heading-ls:     -0.015em;
+
+  /* body-large — guide message prose */
+  --text-body-large-size:   15px;
+  --text-body-large-lh:     1.68;
+  --text-body-large-weight: 300;
+  --text-body-large-family: var(--font-sans);
+
+  /* body — chat input, default UI text */
+  --text-body-size:   14px;
+  --text-body-lh:     1.6;
+  --text-body-weight: 400;          /* derived */
+  --text-body-family: var(--font-sans);
+
+  /* body-small — user messages, session title in header */
+  --text-body-small-size:   13.5px;
+  --text-body-small-lh:     1.5;
+  --text-body-small-weight: 300;
+  --text-body-small-family: var(--font-sans);
+
+  /* closing-line — Fraunces italic; the artifact closingLine field specifically */
+  --text-closing-size:   13.5px;
+  --text-closing-lh:     1.58;
+  --text-closing-weight: 300;
+  --text-closing-family: var(--font-serif);
+  --text-closing-style:  italic;
+
+  /* ui — node labels (mn-title), slider-var label, bar-name, legend rows */
+  --text-ui-size:   12px;
+  --text-ui-lh:     1.35;
+  --text-ui-weight: 400;
+  --text-ui-family: var(--font-sans);
+
+  /* small — bar-amt, cost-label, sim-detail, conductor-rationale */
+  --text-small-size:   11.5px;
+  --text-small-lh:     1.45;
+  --text-small-weight: 300;
+  --text-small-family: var(--font-sans);
+
+  /* caption — msg-label, artifact-tag, bars-label, chip text; always uppercase */
+  --text-caption-size:      10px;
+  --text-caption-lh:        1.6;
+  --text-caption-weight:    500;
+  --text-caption-family:    var(--font-sans);
+  --text-caption-ls:        0.09em;   /* derived — averaging 0.10em/0.08em/0.11em from mockup */
+  --text-caption-transform: uppercase;
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     A10 · SPACING SCALE (4 px base)
+     Extracted from mockup padding/gap values; rounded to the nearest 4 px step.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  --space-1:  2px;
+  --space-2:  4px;
+  --space-3:  6px;
+  --space-4:  8px;    /* derived */
+  --space-5:  10px;
+  --space-6:  12px;
+  --space-7:  14px;
+  --space-8:  16px;
+  --space-9:  18px;
+  --space-10: 20px;
+  --space-12: 24px;
+  --space-14: 28px;
+  --space-16: 32px;
+  --space-20: 40px;   /* derived */
+  --space-24: 48px;   /* derived */
+  --space-32: 64px;   /* derived */
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     A11 · RADII
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  --radius-sm:   5px;      /* buttons, small badges — extracted (--r) */
+  --radius-md:   8px;      /* nodes, inputs — extracted (--r-md) */
+  --radius-lg:   12px;     /* cards, message bubbles — extracted (--r-lg) */
+  --radius-full: 9999px;   /* pills, chips, cost-dot */ /* derived */
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     A12 · SHADOWS + EMBER GLOW BOX-SHADOWS
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* Elevation */
+  --shadow-card:      0 4px 24px rgba(0,0,0,0.35);            /* artifact-card */
+  --shadow-conductor: 0 -12px 40px rgba(0,0,0,0.55);          /* conductor-pane (upward) */
+  --shadow-modal:     0 24px 64px rgba(0,0,0,0.65);            /* derived */
+  --shadow-drag:      0 8px 32px rgba(0,0,0,0.50),
+                      0 0 0 1px var(--color-ember-glow);       /* derived — lifted drag card */
+
+  /* Ember glow box-shadows — current-node pulse animation */
+  --glow-ember-idle:  0 0 0 3px var(--color-ember-glow),
+                      0 0 18px 5px var(--color-ember-glow);    /* pulse @keyframes 0%/100% */
+  --glow-ember-peak:  0 0 0 6px var(--color-ember-hot),
+                      0 0 30px 10px var(--color-ember-hot);    /* pulse @keyframes 50% */
+  --glow-ember-ring:  0 0 0 4px var(--color-ember-glow),
+                      0 0 22px 6px var(--color-ember-glow);    /* current-node static ring */
+  --glow-ember-stale: 0 0 0 2px rgba(224,112,64,0.10),
+                      0 0 12px 3px rgba(224,112,64,0.10);      /* derived — 14-day stale (~50% idle) */
+  --glow-input-focus: 0 0 0 3px var(--color-ember-glow);       /* composer focus ring */
+
+  /* Component-specific glows */
+  --glow-thumb:         0 0 10px var(--color-ember-hot);       /* slider thumb resting */
+  --glow-thumb-active:  0 0 18px var(--color-ember-hot);       /* slider thumb :active */
+  --glow-cost-normal:   0 0 7px rgba(61,122,82,0.70);          /* cost-dot: green */
+  --glow-cost-near:     0 0 7px rgba(224,112,64,0.60);          /* derived — near ceiling */
+  --glow-cost-locked:   0 0 7px rgba(200,72,32,0.60);           /* derived — locked */
+  --glow-badge:         0 0 8px var(--color-ember-glow);        /* artifact pin badge */
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     A13 · MOTION
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* Durations */
+  --duration-pulse:       2800ms;   /* ember glow pulse — the brand heartbeat */
+  --duration-materialize:  400ms;   /* new node fade-in — from §9 spec */
+  --duration-crossfade:    150ms;   /* before-after tab swap — from §10 spec */
+  --duration-fast:         100ms;   /* press / scale feedback */
+  --duration-medium:       280ms;   /* bar fills, panel slides */
+  --duration-slow:         400ms;   /* modal open */ /* derived */
+  --duration-node-enter:  1600ms;   /* frontier fade-in animation */
+  --duration-reveal:       300ms;   /* shared reveal-moment — derived */
+
+  /* Easings */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);   /* bar fills — extracted from mockup */
+  --ease-spring:  cubic-bezier(0.22, 1, 0.36, 1);  /* node-enter — extracted from mockup */
+  --ease-out:     cubic-bezier(0, 0, 0.2, 1);       /* derived */
+  --ease-in:      cubic-bezier(0.4, 0, 1, 1);        /* derived */
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     A14 · Z-LAYERS
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  --z-map-canvas:  1;    /* map base layer */
+  --z-map-node:    2;    /* default node stacking */ /* derived */
+  --z-map-current: 3;    /* current node above siblings */
+  --z-map-badge:   4;    /* artifact-pin badge on node */
+  --z-map-legend:  5;    /* map legend overlay */
+  --z-conductor:  20;    /* conductor drawer over map */
+  --z-header:     30;    /* app header above all panes */
+  --z-modal:      50;    /* dialog / sheet */ /* derived */
+
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     B · ARTIFACT + DATA-VIZ PRIMITIVES
+     Covers all 20 §10 templates. Every sub-group states which templates use
+     it. An implementing model can build any template from these tokens alone,
+     with no additional visual decisions.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B1 · CHART AXIS + GRID
+     Used by: draw-your-guess, compounding-clock, distribution-vs-anecdote,
+              scale-ladder, threshold-hunt
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --chart-grid:       rgba(255,255,255,0.014);   /* map pane grid texture — reused in charts */
+  --chart-axis:       var(--color-border-sub);    /* derived */
+  --chart-tick:       var(--color-text-ghost);    /* derived — tick marks */
+  --chart-tick-label: var(--color-text-muted);    /* derived — axis value labels */
+  --chart-cursor:     var(--color-ember-dim);     /* derived — vertical time-cursor / probe line */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B2 · BAR PRIMITIVES
+     Used by: slider-sim, scale-ladder, budget-allocator
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --bar-track:             var(--color-s4);            /* bar track background */
+  --bar-fill-primary:      var(--color-ember);          /* interactive / subject bar */
+  --bar-fill-comparison:   var(--color-node-visited);   /* static comparison bars */
+  --bar-fill-comp-opacity: 0.7;                         /* applied to comparison fills */
+  --bar-height:            7px;                         /* .bar-track height */
+  --bar-radius:            4px;
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B3 · SLIDER + RANGE INPUT
+     Used by: slider-sim, odds-calibrator, budget-allocator, threshold-hunt
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --slider-track-height:      4px;
+  --slider-track-bg:          var(--color-s4);
+  --slider-thumb-size:        20px;
+  --slider-thumb-bg:          var(--color-ember);
+  --slider-thumb-glow:        0 0 10px var(--color-ember-hot);
+  --slider-thumb-glow-active: 0 0 18px var(--color-ember-hot);
+  --slider-tick-color:        var(--color-text-ghost);   /* derived — labeled ticks on track */
+  --slider-tick-label:        var(--color-text-muted);   /* derived */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B4 · REFERENCE LINE
+     Used by: slider-sim (labeled tick on track), compounding-clock (horizontal rule)
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --refline-color: var(--color-text-ghost);   /* derived */
+  --refline-dash:  4px 3px;                   /* derived */
+  --refline-width: 1px;                       /* derived */
+  --refline-label: var(--color-text-muted);   /* derived */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B5 · DRAW-YOUR-GUESS STROKE PAIR
+     Used by: draw-your-guess
+     Spec: "overlays the actual hiddenPoints line in the ember accent color"
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --sketch-user-stroke:  var(--color-text-muted);   /* derived — freehand: muted, not prominent */
+  --sketch-user-width:   2px;                        /* derived */
+  --sketch-actual-stroke: var(--color-ember);        /* derived — from spec */
+  --sketch-actual-width:  2.5px;                     /* derived — bolder than user line */
+  --sketch-canvas-bg:     rgba(255,255,255,0.02);    /* derived — ghost canvas for hidden range */
+  --sketch-canvas-label:  var(--color-text-ghost);   /* derived — "Draw your guess" prompt */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B6 · DOT PLOT
+     Used by: distribution-vs-anecdote
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --dot-fill:           var(--color-node-visited);           /* derived — bulk distribution */
+  --dot-fill-opacity:   0.65;                                /* derived — stacked transparency */
+  --dot-anecdote:       var(--color-ember);                  /* derived — outlier dot */
+  --dot-anecdote-glow:  0 0 8px var(--color-ember-glow);    /* derived */
+  --dot-size:           8px;                                 /* derived */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B7 · ICON ARRAY QUADRANT COLORS (base-rate-box)
+     Four cells on warm-dark bg. No rainbow; analogous warm/cool split
+     derived harmoniously from the node-state palette.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --icon-true-positive:  #3d7a52;   /* derived — settled green: has condition, correctly caught */
+  --icon-false-positive: #9c6830;   /* derived — warm amber: flagged but no condition */
+  --icon-true-negative:  #384a5e;   /* derived — steel blue: correctly cleared */
+  --icon-false-negative: #7a3a2e;   /* derived — dark red-brown: condition missed */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B8 · CORRECT / INCORRECT FEEDBACK
+     Used by: predict-reveal (option highlight), evidence-cards (card flash),
+              rank-the-list (delta overlay)
+     Both bg fill AND text are AA-accessible on --color-s2 background.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --feedback-correct-bg:      rgba(61,122,82,0.18);    /* derived */
+  --feedback-correct-border:  rgba(61,122,82,0.50);    /* derived */
+  --feedback-correct-text:    #5aac72;                 /* derived — chip-lean color from mockup */
+  --feedback-incorrect-bg:    rgba(200,72,32,0.18);    /* derived */
+  --feedback-incorrect-border: rgba(200,72,32,0.50);   /* derived */
+  --feedback-incorrect-text:  #e05030;                 /* derived — legible red-orange on dark */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B9 · DRAG CARD + DROP ZONE
+     Used by: evidence-cards, rank-the-list
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --drag-card-bg:            var(--color-s3);          /* derived — one level above card surface */
+  --drag-card-border:        var(--color-border);      /* derived */
+  --drag-card-radius:        var(--radius-md);         /* derived */
+  --drag-card-shadow:        var(--shadow-card);       /* derived — at rest */
+  --drag-card-shadow-lift:   var(--shadow-drag);       /* derived — while dragging */
+  --drop-zone-bg:            var(--color-s2);          /* derived — sunken target */
+  --drop-zone-border:        var(--color-border);      /* derived */
+  --drop-zone-radius:        var(--radius-md);         /* derived */
+  --drop-zone-border-active: var(--color-ember-dim);   /* derived — draggable hovering */
+  --drop-zone-bg-active:     rgba(224,112,64,0.06);    /* derived */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B10 · BEFORE-AFTER TABS
+     Used by: before-after
+     Crossfade duration from spec: "150 ms crossfade"
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --tab-active-bg:      var(--color-s3);              /* derived */
+  --tab-active-border:  var(--color-ember-dim);       /* derived */
+  --tab-active-text:    var(--color-text-primary);    /* derived */
+  --tab-inactive-bg:    transparent;                  /* derived */
+  --tab-inactive-text:  var(--color-text-secondary);  /* derived */
+  --tab-crossfade:      var(--duration-crossfade);    /* 150ms — from spec */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B11 · TIMELINE TRACK + MARKER
+     Used by: timeline
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --timeline-track:          var(--color-border);        /* derived */
+  --timeline-track-width:    2px;                        /* derived */
+  --timeline-marker-bg:      var(--color-s4);            /* derived — untapped dot */
+  --timeline-marker-border:  var(--color-border);        /* derived */
+  --timeline-marker-tapped:  var(--color-node-visited);  /* derived — tapped marker */
+  --timeline-marker-size:    10px;                       /* derived */
+  --timeline-expanded-bg:    var(--color-s2);            /* derived — detail card */
+  --timeline-expanded-border: var(--color-border-sub);   /* derived */
+  --timeline-pattern-bg:     rgba(61,122,82,0.10);       /* derived — pattern reveal block */
+  --timeline-pattern-border: rgba(61,122,82,0.30);       /* derived */
+  --timeline-pattern-text:   var(--color-text-primary);  /* derived */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B12 · TRADEOFF PANELS
+     Used by: tradeoff
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --tradeoff-panel-bg:         var(--color-s2);           /* derived */
+  --tradeoff-panel-border:     var(--color-border);       /* derived */
+  --tradeoff-panel-radius:     var(--radius-md);          /* derived */
+  --tradeoff-chosen-border:    var(--color-ember);        /* derived — selected option ring */
+  --tradeoff-chosen-bg:        rgba(224,112,64,0.06);     /* derived */
+  --tradeoff-unchosen-opacity: 0.65;                      /* derived */
+  --tradeoff-insight-bg:       var(--color-s1);           /* derived — recessed insight block */
+  --tradeoff-insight-border:   var(--color-border-sub);   /* derived */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B13 · FUNNEL STAGE FILLS (survivorship-filter)
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --funnel-stage-fill:       var(--color-node-visited);   /* derived — passing stages */
+  --funnel-stage-opacity:    0.55;                        /* derived */
+  --funnel-survivor-fill:    var(--color-ember);          /* derived — final survivors */
+  --funnel-survivor-opacity: 0.80;                        /* derived */
+  --funnel-drop-label:       var(--color-text-muted);     /* derived — drop-reason caption */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B14 · COUNTERFACTUAL FORK STROKES (counterfactual-fork)
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --fork-actual-stroke:    var(--color-node-visited);   /* derived — actual path: cool blue */
+  --fork-actual-width:     2px;                          /* derived */
+  --fork-counter-stroke:   var(--color-text-muted);     /* derived — hypothetical: muted */
+  --fork-counter-width:    1.5px;                        /* derived */
+  --fork-counter-dash:     6px 4px;                      /* derived — dashed counterfactual */
+  --fork-point-fill:       var(--color-s3);              /* derived — fork-origin node */
+  --fork-point-border:     var(--color-ember);           /* derived — the decisive moment */
+  --fork-event-fill:       var(--color-s2);              /* derived — event cards on branches */
+  --fork-event-border:     var(--color-border-sub);      /* derived */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B15 · FEEDBACK LOOP STEPPER (feedback-loop-stepper)
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --loop-node-bg:            var(--color-s3);            /* derived */
+  --loop-node-border:        var(--color-border);        /* derived */
+  --loop-node-active-border: var(--color-ember);         /* derived — highlighted step */
+  --loop-node-active-glow:   var(--glow-ember-ring);     /* derived */
+  --loop-arrow-stroke:       var(--color-text-muted);    /* derived */
+  --loop-arrow-active:       var(--color-ember);         /* derived */
+  --loop-punchline-bg:       rgba(61,122,82,0.08);       /* derived — punchline reveal block */
+  --loop-punchline-border:   rgba(61,122,82,0.25);       /* derived */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B16 · COMPOUNDING CLOCK CURVES (compounding-clock)
+     3 distinguishable strokes, all from the existing palette — no new hues.
+     The component's optional color? prop overrides these defaults per scenario.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --curve-1-stroke: var(--color-ember);          /* derived — highest/most dramatic rate */
+  --curve-2-stroke: var(--color-node-settled);   /* derived — mid rate */
+  --curve-3-stroke: var(--color-node-visited);   /* derived — conservative rate */
+  --curve-width:    2px;                          /* derived */
+  --curve-cursor:   var(--color-ember-dim);       /* derived — vertical time-cursor */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B17 · ANATOMY LABELER REGION OVERLAY STATES (anatomy-labeler)
+     Region fill colors come from Generator-supplied props (hex), not tokens.
+     These tokens cover the interaction overlays and the description panel only.
+     Connection arrows reuse --loop-arrow-stroke.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --region-default-opacity: 0.70;                         /* derived */
+  --region-hover-opacity:   0.90;                         /* derived */
+  --region-active-ring:     0 0 0 2px var(--color-ember-glow); /* derived */
+  --region-label-bg:        rgba(11,10,8,0.75);           /* derived — pin label pill on SVG */
+  --region-label-text:      var(--color-text-primary);    /* derived */
+  --region-label-border:    var(--color-border);          /* derived */
+  --region-panel-bg:        var(--color-s2);              /* derived — description side panel */
+  --region-panel-border:    var(--color-border-sub);      /* derived */
+  --region-arrow-stroke:    var(--color-text-muted);      /* derived — connection arrows */
+  --region-arrow-label:     var(--color-text-muted);      /* derived */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B18 · STEELMAN DUEL SIDE PANELS (steelman-duel)
+     Design requirement: equal visual weight before user commits.
+     Both panels are visually identical until the user picks a side.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --duel-panel-bg:          var(--color-s2);              /* derived — both panels identical */
+  --duel-panel-border:      var(--color-border);          /* derived — both panels identical */
+  --duel-panel-radius:      var(--radius-md);             /* derived */
+  --duel-divider:           var(--color-border-sub);      /* derived — center line between panels */
+  --duel-synthesis-bg:      rgba(61,122,82,0.08);         /* derived — neutral positive reveal */
+  --duel-synthesis-border:  rgba(61,122,82,0.25);         /* derived */
+  --duel-leans-label:       var(--color-text-secondary);  /* derived — "consensus leans" text */
+  --duel-leans-indicator:   var(--color-ember-dim);       /* derived — badge on the leaning side */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B19 · CONFIDENCE METER (odds-calibrator)
+     Reuses --slider-* for track/thumb; adds calibration-zone fills.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --confidence-fill:       var(--color-ember);               /* derived — confidence bar */
+  --confidence-over-fill:  rgba(200,72,32,0.20);             /* derived — >70% confidence on false */
+  --confidence-under-fill: rgba(88,120,158,0.20);            /* derived — <30% on true */
+  --confidence-label:      var(--color-text-secondary);      /* derived */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B20 · BUDGET ALLOCATOR (budget-allocator)
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --alloc-fill:          var(--color-ember);           /* derived — user allocation bar */
+  --alloc-actual-fill:   var(--color-node-settled);    /* derived — actual bar after reveal */
+  --alloc-handle-bg:     var(--color-ember);           /* derived — drag handle */
+  --alloc-handle-border: var(--color-ember-dim);       /* derived */
+  --alloc-delta-over:    var(--color-ember);           /* derived — guessed too high (+) */
+  --alloc-delta-under:   var(--color-node-visited);    /* derived — guessed too low (-) */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B21 · SCALE LADDER (scale-ladder)
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --ladder-subject-fill:  var(--color-ember);          /* derived — the measured quantity */
+  --ladder-rung-fill:     var(--color-node-visited);   /* derived — reference rungs */
+  --ladder-rung-opacity:  0.65;                        /* derived */
+  --ladder-ratio-label:   var(--color-text-muted);     /* derived — "34× GDP" labels */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B22 · THRESHOLD HUNT (threshold-hunt)
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --threshold-range-fill:  var(--color-s4);            /* derived — range bar background */
+  --threshold-probe-fill:  var(--color-ember);         /* derived — user probe mark */
+  --threshold-marker-fill: var(--color-ember);         /* derived — revealed threshold */
+  --threshold-above-bg:    rgba(88,120,158,0.15);      /* derived — above-threshold zone */
+  --threshold-below-bg:    rgba(61,122,82,0.15);       /* derived — below-threshold zone */
+  --threshold-label:       var(--color-text-muted);    /* derived */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B23 · RANK-THE-LIST DELTA ARROWS (rank-the-list)
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --rank-delta-up:      #e05030;                       /* derived — ranked lower than actual (↑) */
+  --rank-delta-down:    var(--color-node-visited);     /* derived — ranked higher than actual (↓) */
+  --rank-delta-correct: #5aac72;                       /* derived — nailed the position (✓) */
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B24 · REVEAL MOMENT — shared "payoff lands" transition
+     Used by all 20 templates for their primary reveal beat. Apply to the
+     reveal container via animation: revealIn var(--reveal-duration) var(--reveal-ease).
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --reveal-duration:     var(--duration-reveal);   /* 300ms */
+  --reveal-ease:         var(--ease-spring);        /* spring — feels like arrival */
+  --reveal-scale-from:   0.97;                     /* derived — subtle scale on entry */
+  --reveal-scale-to:     1;
+  --reveal-opacity-from: 0;
+  --reveal-opacity-to:   1;
+
+  /* ───────────────────────────────────────────────────────────────────────
+     B25 · POSTURE + CONDUCTOR CHIPS (product chrome)
+     Extracted directly from mockup .chip-{cold,lean,far,near} classes.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  --chip-cold-bg:     rgba(80,80,95,0.22);
+  --chip-cold-color:  #7a8aa8;
+  --chip-cold-border: rgba(80,80,95,0.30);
+
+  --chip-lean-bg:     rgba(61,122,82,0.18);
+  --chip-lean-color:  #5aac72;
+  --chip-lean-border: rgba(61,122,82,0.32);
+
+  --chip-far-bg:      rgba(80,70,55,0.22);
+  --chip-far-color:   var(--color-text-secondary);
+  --chip-far-border:  rgba(80,70,55,0.32);
+
+  --chip-near-bg:     rgba(224,112,64,0.16);
+  --chip-near-color:  var(--color-ember);
+  --chip-near-border: rgba(224,112,64,0.32);
+
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     C · shadcn/ui CSS VARIABLE MAPPING
+     Single dark theme. Maps shadcn's required slot names to primitives above.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  --background:             var(--color-ground);
+  --foreground:             var(--color-text-primary);
+
+  --card:                   var(--color-s2);
+  --card-foreground:        var(--color-text-primary);
+
+  --popover:                var(--color-s2);
+  --popover-foreground:     var(--color-text-primary);
+
+  --primary:                var(--color-ember);
+  --primary-foreground:     var(--color-ground);    /* dark text on ember — extracted from send-btn */
+
+  --secondary:              var(--color-s3);
+  --secondary-foreground:   var(--color-text-secondary);
+
+  --muted:                  var(--color-s3);
+  --muted-foreground:       var(--color-text-muted);
+
+  --accent:                 var(--color-s3);         /* subtle bg accent; primary interaction = --primary */
+  --accent-foreground:      var(--color-text-primary);
+
+  --destructive:            #c84820;                 /* derived — slider-sim crisis color */
+  --destructive-foreground: var(--color-text-primary);
+
+  --border:                 var(--color-border);
+  --input:                  var(--color-border);
+  --ring:                   var(--color-ember-dim);
+
+  --radius:                 var(--radius-md);         /* shadcn base radius → 8px */
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TAILWIND v4 @theme WIRING
+   This block wires the token primitives into Tailwind's utility class engine.
+   It requires that this file is @imported inside a file that also has
+   @import "tailwindcss" (typically src/app/globals.css).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@theme inline {
+  /* Surfaces */
+  --color-ground:       var(--color-ground);
+  --color-s1:           var(--color-s1);
+  --color-s2:           var(--color-s2);
+  --color-s3:           var(--color-s3);
+  --color-s4:           var(--color-s4);
+
+  /* Ember accent */
+  --color-ember:        var(--color-ember);
+  --color-ember-dim:    var(--color-ember-dim);
+  --color-ember-hover:  var(--color-ember-hover);
+  --color-ember-glow:   var(--color-ember-glow);
+  --color-ember-hot:    var(--color-ember-hot);
+
+  /* Text */
+  --color-text-primary:   var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted:     var(--color-text-muted);
+  --color-text-ghost:     var(--color-text-ghost);
+
+  /* Node states */
+  --color-settled:  var(--color-node-settled);
+  --color-visited:  var(--color-node-visited);
+  --color-frontier: var(--color-node-frontier);
+
+  /* Borders */
+  --color-border:     var(--color-border);
+  --color-border-sub: var(--color-border-sub);
+
+  /* Severity scale */
+  --color-sev-safe:    var(--color-sev-safe);
+  --color-sev-warn:    var(--color-sev-warn);
+  --color-sev-caution: var(--color-sev-caution);
+  --color-sev-danger:  var(--color-sev-danger);
+  --color-sev-crisis:  var(--color-sev-crisis);
+
+  /* Typography */
+  --font-serif: var(--font-serif);
+  --font-sans:  var(--font-sans);
+  --font-mono:  var(--font-mono);
+
+  /* Radii */
+  --radius-sm:   var(--radius-sm);
+  --radius-md:   var(--radius-md);
+  --radius-lg:   var(--radius-lg);
+  --radius-full: var(--radius-full);
+
+  /* Motion */
+  --ease-default: var(--ease-default);
+  --ease-spring:  var(--ease-spring);
+  --ease-out:     var(--ease-out);
+  --ease-in:      var(--ease-in);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   KEYFRAMES
+   Shared animation definitions that all components can reference by name.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The brand heartbeat — applied to current map nodes */
+@keyframes worldview-pulse {
+  0%, 100% { box-shadow: var(--glow-ember-idle); }
+  50%       { box-shadow: var(--glow-ember-peak); }
+}
+
+/* New frontier node materializes */
+@keyframes worldview-node-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.96);
+  }
+  to {
+    opacity: 0.48;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* Reveal-moment — applied to any template's reveal container */
+@keyframes worldview-reveal {
+  from {
+    opacity: var(--reveal-opacity-from);
+    transform: scale(var(--reveal-scale-from));
+  }
+  to {
+    opacity: var(--reveal-opacity-to);
+    transform: scale(var(--reveal-scale-to));
+  }
+}

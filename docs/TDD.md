@@ -389,6 +389,63 @@ model Event          { id String @id; sessionId String; type String; payload Jso
 
 **Design direction (locked 2026-06-11; canonical reference: `design/mockup.html`):** warm deep-night palette — background `#0b0a08` (near-black, warm undertone), surfaces stepping up in warmth (`#131109` → `#1a1813` → `#22201a`), accent `#e07040` ember-orange. Type: **Fraunces** (serif, optical sizing) for the held question, node titles, artifact headlines, and artifact closing lines; **DM Sans** for body and UI chrome. Open loops glow like embers (slow 2.8 s pulse) — the glow is the brand. Guide messages are typographic (no avatars/chrome); user messages lighter and smaller. The implementing model should match the mockup's look and feel, swapping its hand-rolled SVG map for React Flow.
 
+### §9.1 Component inventory (tokens: `design/tokens.css`)
+
+All visual values below are token references. An implementing model needs no additional design decisions to build any row.
+
+#### (a) Product chrome
+
+| Component | Base | Key tokens | States |
+|---|---|---|---|
+| Guide message | custom | `--text-body-large-*`, `--color-text-primary`, `--color-ember-dim` (label) | idle |
+| User message | custom | `--color-s2`, `--color-border`, `--radius-lg`, `--text-body-small-*`, `--color-text-secondary` | idle |
+| Artifact card shell | shadcn Card + custom | `--color-s2`, `--color-ember` (3 px left accent), `--shadow-card`, `--radius-lg`, `--text-title-*` (headline), `--text-closing-*` (closingLine) | locked (shimmer) · building (pulse) · unlocked · expanded (modal) |
+| Map node | custom React Flow node | `--color-s2/s3/s4`, `--color-border`, `--color-ember`, `--glow-ember-ring`, `--glow-ember-stale` (14-day stale), `--radius-md`, `worldview-pulse` animation | frontier · visited · current (+pulse) · settled · stale |
+| Map edge | SVG `<path>` | settled `rgba(61,122,82,0.32)` sw 1.5 · visited `rgba(88,120,158,0.38)` sw 1.5 · current `rgba(224,112,64,0.55)` sw 2 · frontier `rgba(80,76,64,0.28)` sw 1 dashed `5 4` | settled · visited · current · frontier |
+| Conductor pane | custom | `rgba(11,10,8,0.94)` bg, `--color-border-sub`, `--shadow-conductor`, `--z-conductor` | open · collapsed (`translateY calc(100% - 36px)`) |
+| Conductor row | custom | `--color-border-sub`, `--text-small-*`, `--text-caption-*`, `--color-code` | idle |
+| Posture chip | custom | `--chip-{cold,lean,far,near}-{bg,color,border}`, `--radius-full`, `--text-caption-*` | cold · lean · far · near |
+| Shelf card | shadcn Card | `--color-s2`, `--color-border`, `--radius-lg`, `--shadow-card`, `--color-ember-dim` (open-loop count) | idle · hover |
+| Header | custom | `--color-s1`, `--color-border`, h=54 px, `--z-header`, `--font-serif` (session title) | idle |
+| "Where you stand" | inline + shadcn Popover | `--color-text-secondary`, `--color-ember-dim` (✎ icon), `--color-border-sub` (history list dividers) | idle · editing · history-open |
+| View-history panel | shadcn Sheet | `--color-s2`, `--color-border-sub`, `--text-body-small-*` | open · closed |
+| Composer | custom | `--color-s2`, `--color-border`, `--glow-input-focus`, `--color-ember` (send btn bg), `--color-ground` (send btn fg), `--radius-lg` | idle · focused · disabled (`costLocked`) |
+| Sharpen-confirm field | shadcn Input | `--color-s2`, `--color-border`, `--glow-input-focus` | idle · editing · confirmed |
+| Cost dot | custom | `--glow-cost-{normal,near,locked}`, `--color-node-settled`, `--color-ember`, `--destructive` | normal (<$1.60) · near (≥$1.60) · locked ($2.00) |
+| Safety-note card | custom | `--color-safety-note`, `--color-s2`, `--color-border-sub`, `--text-small-*` | idle |
+| Off-map chip | shadcn Badge | `--color-s3`, `--color-border`, `--color-ember-dim`, `--text-caption-*` | idle · accepted · dismissed |
+| Export / Import | shadcn Button | `--primary`, `--primary-foreground`, `--secondary`, `--secondary-foreground` | idle · loading |
+| Overview toggle | shadcn Button | `--color-s3`, `--color-border`, `--radius-sm`, `--color-ember-dim` (active state) | idle · active (fitView) |
+| Modal / Sheet | shadcn Dialog + Sheet | `--color-s2`, `--shadow-modal`, `--z-modal`, `--color-border` | open · closed |
+| Empty states | custom | `--color-text-muted`, `--color-text-ghost`, `--text-body-*` | idle |
+
+#### (b) Artifact templates — all twenty
+
+★ = v1 build. After this table every phase-2 template is a pure build task with zero design decisions remaining.
+
+| Template | Interactive primitives | Reveal / feedback states | Note |
+|---|---|---|---|
+| **slider-sim** ★ | `--slider-*`, `--bar-*`, `--refline-*`, `--color-sev-*` | headline + detail swap per segment (`--duration-medium` + `--ease-default`); bar color = current segment | Segment colors from `--color-sev-{safe,warn,caution,danger,crisis}`; each `outcomes[].atOrBelow` is a piecewise breakpoint |
+| **predict-reveal** ★ | option buttons, `--feedback-correct-*`, `--feedback-incorrect-*` | chosen option flashes `--feedback-incorrect-*`; correct flashes `--feedback-correct-*`; `reveal` + `whyYourGuessWasReasonable` fade via `--reveal-*` | Choice locked on click; no undo |
+| **before-after** ★ | `--tab-*`, `--tab-crossfade` | body swaps on tab click with `--duration-crossfade` (150 ms) + `--ease-default` crossfade | Both labels always visible; only body animates |
+| **evidence-cards** ★ | `--drag-card-*`, `--drop-zone-*` | cards flash `--feedback-correct/incorrect-*` per `supports` value; `verdict` block fades via `--reveal-*` | After all cards placed; `--drop-zone-border-active` on hover |
+| **timeline** ★ | `--timeline-track`, `--timeline-marker-*`, `--timeline-expanded-*` | tapped markers switch to `--timeline-marker-tapped`; `--timeline-pattern-*` block; `--reveal-*` | "Reveal pattern" button fires if not all markers tapped |
+| **tradeoff** ★ | `--tradeoff-panel-*` (both identical pre-pick), `--tradeoff-chosen-*` | unchosen fades to `--tradeoff-unchosen-opacity`; `--tradeoff-insight-*` block; `--reveal-*` | Unchosen consequences shown alongside chosen after pick |
+| **draw-your-guess** | `--sketch-user-*` (canvas), `--chart-*` | `--sketch-actual-stroke` line overlaid on Reveal click; `reveal` text via `--reveal-*` | `--sketch-canvas-bg` ghosts the hidden x-range; known portion renders as solid line first |
+| **scale-ladder** | `--ladder-*`, `--bar-track`, `--chart-*` | ratio label appears on bar tap; `--reveal-*` | `--ladder-subject-fill` = ember; component applies log scale when value range > 3 orders of magnitude |
+| **base-rate-box** | `--icon-{true/false}-{positive/negative}` icon array | user input → correct fraction highlighted; `insight` + `intuitiveMisread` via `--reveal-*` | 4 quadrant colors; Zod sum refine: all counts ≤ 10,000 |
+| **feedback-loop-stepper** | `--loop-node-*`, `--loop-arrow-*` | active node advances with `--loop-node-active-*`; `--loop-punchline-*` after full cycle; `--reveal-*` | `loopType` "reinforcing"/"balancing" frames punchline copy only |
+| **distribution-vs-anecdote** | `--dot-*`, `--chart-*` | `--dot-anecdote` dot appears with callout; `detail` + `insight` via `--reveal-*` | Bulk distribution renders first; anecdote overlaid on "Show [label]" click |
+| **rank-the-list** | `--drag-card-*`, `--rank-delta-*` | items animate to correct positions; `--rank-delta-{up,down,correct}` badge per item; `insight` via `--reveal-*` | Generator must NOT pre-sort items in correct order |
+| **odds-calibrator** | `--slider-*` (0–100%), `--confidence-fill`, `--confidence-{over,under}-fill` | `isTrue` shown prominently; calibration-zone label; `reveal` + `calibrationNote` via `--reveal-*` | Over/underconfident secondary line when gap > threshold |
+| **compounding-clock** | `--curve-{1,2,3}-stroke`, `--chart-*`, `--refline-*`, `--curve-cursor` | all lines draw left→right ~2 s on mount; drag cursor reads values at any point; final values labeled via `--reveal-*` | `color?` prop overrides `--curve-*` per scenario |
+| **survivorship-filter** | `--funnel-*` | stage-by-stage advance; survivor bar switches to `--funnel-survivor-fill`; `insight` via `--reveal-*` | Bar widths proportional to `surviving` counts |
+| **steelman-duel** | `--duel-panel-*` (equal weight pre-commit), `--duel-leans-*` | `--duel-synthesis-*` block after pick; `consensusLeans` final labeled line; `--reveal-*` | Both panels visually identical until user commits; equal weight is the design requirement |
+| **anatomy-labeler** | `--region-*` overlays, `--region-arrow-stroke` connections | click → `--region-active-ring` + `--region-panel-*` description panel; `--reveal-*` | `fillColor` from Generator props; `--region-*` tokens cover interaction states only |
+| **counterfactual-fork** | `--fork-actual-*` (solid), `--fork-counter-*` (dashed), `--fork-point-*`, `--fork-event-*` | actual branch tapped first; counterfactual branch revealed second; `insight` via `--reveal-*` | Both branches 3–5 events; insight appears after both explored |
+| **budget-allocator** | `--alloc-*`, `--slider-*` (sum enforced = 100) | bars animate to `actualPercent`; `--alloc-delta-{over,under}` label per category; `insight` via `--reveal-*` | Proportional re-adjustment across sliders enforced in component |
+| **threshold-hunt** | `--threshold-*`, `--slider-*` | above/below feedback per probe; `--reveal-*` after `revealTolerance` or 6 probes; threshold marked on range bar | `belowLabel`/`aboveLabel` shown on feedback; range bar uses `--threshold-{above,below}-bg` zones |
+
 **Home (map shelf):** a returning user (any map exists for the local `userId`) lands on a simple shelf — one card per map: held question, count of glowing (open) loops, **the brightest open loop named outright** (from `resumeSummary` — the card is itself a hook, not a menu item), "Where you stand" one-liner when set, last-visited date. After the user's 3rd session, a card gains one more line: *"Your guide has noticed: [one styleNote from the user model]"* — the personalization, made visible. Clicking a card starts a new session on that map (the return-turn-1 flow, §5); a primary "bring a new question" button starts onboarding. The shelf footer has **Export / Import** (round-trips all user data as one JSON file — the guard against localStorage loss, stated plainly: "your maps live in this browser; export to keep them"). First-time users skip the shelf entirely.
 
 **Layout (desktop):** header (topic title · held question · **"Where you stand: …" one-liner when `currentView` is set, with its as-of date, a ✎ edit affordance (typing a replacement writes a new `ViewSnapshot`), and a small history icon that opens the dated list of all `ViewSnapshot`s — the trail, §5.7 PRD** · cost-meter dot · Conductor toggle) · left pane **chat** (~55%) · right pane **map** (~45%) · Conductor pane as a bottom drawer overlaying the map pane when open. Mobile: tab switch between Chat and Map; Conductor inside a sheet. Desktop-first; mobile must be usable, not polished.
