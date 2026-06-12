@@ -25,6 +25,7 @@ import {
   SharpenSchema,
 } from './llmSchemas'
 import { GEN_SCHEMAS } from '@/templates/genSchemas'
+import { TEMPLATE_IDS } from './types'
 import {
   TUTOR_ANCHOR,
   DIRECTOR_SYSTEM,
@@ -340,7 +341,7 @@ const DIRECTOR_TOOLS = [
       properties: {
         templateId: {
           type: 'string',
-          enum: ['slider-sim', 'predict-reveal', 'before-after', 'evidence-cards', 'timeline', 'tradeoff'],
+          enum: [...TEMPLATE_IDS],
         },
         nodeId: { type: 'string' },
         loopQuestion: { type: 'string' },

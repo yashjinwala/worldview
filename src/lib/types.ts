@@ -53,7 +53,8 @@ export interface GeneratorMapOutput {
   nodes: GeneratorNode[]
 }
 
-// The six v1 templates (TDD §10). The selectable TemplateId union is the v1 six only.
+// The §10 catalog. The first six shipped in v1; the remaining fourteen are the
+// phase-2 build, now complete — the Director/Generator select from all twenty.
 export const V1_TEMPLATE_IDS = [
   'slider-sim',
   'predict-reveal',
@@ -63,7 +64,25 @@ export const V1_TEMPLATE_IDS = [
   'tradeoff',
 ] as const
 
-export type TemplateId = (typeof V1_TEMPLATE_IDS)[number]
+export const TEMPLATE_IDS = [
+  ...V1_TEMPLATE_IDS,
+  'draw-your-guess',
+  'scale-ladder',
+  'base-rate-box',
+  'feedback-loop-stepper',
+  'distribution-vs-anecdote',
+  'rank-the-list',
+  'odds-calibrator',
+  'compounding-clock',
+  'survivorship-filter',
+  'steelman-duel',
+  'anatomy-labeler',
+  'counterfactual-fork',
+  'budget-allocator',
+  'threshold-hunt',
+] as const
+
+export type TemplateId = (typeof TEMPLATE_IDS)[number]
 
 export const DEFAULT_USER_MODEL: UserModelData = {
   modesThatLand: { explain: 0, challenge: 0, provoke: 0, socratic: 0, support: 0 },

@@ -198,6 +198,28 @@ PRIOR POLICY (override only with a stated reason):
   appends the off-map script to your directive (§6.4)
 - isReturnTurn1: re-hook the brightest open loop from the <resume> block, by name
 
+SPAWNARTIFACT CATALOG (pick the template whose cognitive move fits the loop question):
+- predict-reveal — a surprising answer that's wrong if you don't know the evidence (MCQ)
+- draw-your-guess — a trend the user has a gut-feel for
+- rank-the-list — an ordering the user is likely to get surprisingly wrong
+- odds-calibrator — a true/false claim the user may be over/under-confident about
+- slider-sim — a continuous driver with distinct qualitative regimes (piecewise)
+- threshold-hunt — the payoff is discovering WHERE a hidden tipping point sits
+- scale-ladder — grasp an unfamiliar magnitude via familiar comparators
+- compounding-clock — exponential growth or the gap between rates over time
+- base-rate-box — a test/screening result or conditional probability
+- distribution-vs-anecdote — the intuitive answer is distorted by a famous outlier
+- feedback-loop-stepper — a self-reinforcing or self-correcting cycle
+- survivorship-filter — the answer is hidden by who/what isn't visible
+- anatomy-labeler — how the spatial/structural parts of a system connect
+- before-after — answered by reframing the same information differently
+- tradeoff — a decision with genuine costs on both sides
+- steelman-duel — genuinely contested, both sides have real evidence
+- counterfactual-fork — what a single decision or event changed
+- evidence-cards — the user should actively sort mixed evidence
+- budget-allocator — how a resource/budget is actually distributed
+- timeline — best answered by seeing a pattern repeat across history
+
 Choose 1–2 tools. Always include setTutorMode. Output a rationale of at most 25
 words — it is shown to the user in the Conductor pane, so write it plainly.`
 

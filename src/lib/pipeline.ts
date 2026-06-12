@@ -21,7 +21,7 @@ import { SESSION_COST_LIMIT_USD, SESSION_COST_NEAR_USD } from './pricing'
 import { OFF_MAP_SCRIPT, COST_LOCK_WRAP_UP } from './prompts'
 import { TEMPLATE_SCHEMAS } from '@/templates/schemas'
 import { TEMPLATE_PROMPT_SPECS } from '@/templates/promptSpecs'
-import { Posture, ReaderOutput, DirectorToolCall, TutorMode, V1_TEMPLATE_IDS } from './types'
+import { Posture, ReaderOutput, DirectorToolCall, TutorMode, TEMPLATE_IDS } from './types'
 
 const IDLE_MS = 30 * 60 * 1000
 const VALID_MODES: TutorMode[] = ['explain', 'challenge', 'provoke', 'socratic', 'support']
@@ -381,7 +381,7 @@ async function pipelineTurn(
     const forced = process.env.FORCE_ARTIFACT
     if (forced && !isTurn1 && !offMap && currentNodeId && !tools.some((t) => t.name === 'spawnArtifact')) {
       const tpl = forced === 'true' ? 'slider-sim' : forced
-      if ((V1_TEMPLATE_IDS as readonly string[]).includes(tpl)) {
+      if ((TEMPLATE_IDS as readonly string[]).includes(tpl)) {
         const activeLoop = await prisma.loop.findFirst({ where: { nodeId: currentNodeId, closedAt: null } })
         const loopQuestion = activeLoop?.question ?? map.heldQuestion
         tools.splice(1, tools.length, { name: 'spawnArtifact', input: { templateId: tpl, nodeId: currentNodeId, loopQuestion } })

@@ -1,8 +1,8 @@
 'use client'
-// Artifact registry + card shell. The six v1 templates render only their interactive
-// body; this shell renders the card chrome (tag, title, caption, closingLine) uniformly
-// and validates props on receipt (TDD §10: "Validation happens at artifact_ready
-// receipt on the client"). Invalid props → the artifact is silently dropped.
+// Artifact registry + card shell. Each template renders only its interactive body;
+// this shell renders the card chrome (tag, title, caption, closingLine) uniformly and
+// validates props on receipt (TDD §10: "Validation happens at artifact_ready receipt on
+// the client"). Invalid props → the artifact is silently dropped.
 
 import { ReactNode } from 'react'
 import { TEMPLATE_SCHEMAS } from './schemas'
@@ -12,6 +12,20 @@ import { BeforeAfter } from './BeforeAfter'
 import { EvidenceCards } from './EvidenceCards'
 import { Timeline } from './Timeline'
 import { Tradeoff } from './Tradeoff'
+import { DrawYourGuess } from './DrawYourGuess'
+import { ScaleLadder } from './ScaleLadder'
+import { BaseRateBox } from './BaseRateBox'
+import { FeedbackLoopStepper } from './FeedbackLoopStepper'
+import { DistributionVsAnecdote } from './DistributionVsAnecdote'
+import { RankTheList } from './RankTheList'
+import { OddsCalibrator } from './OddsCalibrator'
+import { CompoundingClock } from './CompoundingClock'
+import { SurvivorshipFilter } from './SurvivorshipFilter'
+import { SteelmanDuel } from './SteelmanDuel'
+import { AnatomyLabeler } from './AnatomyLabeler'
+import { CounterfactualFork } from './CounterfactualFork'
+import { BudgetAllocator } from './BudgetAllocator'
+import { ThresholdHunt } from './ThresholdHunt'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const BODIES: Record<string, (p: { props: any }) => ReactNode> = {
@@ -21,6 +35,20 @@ const BODIES: Record<string, (p: { props: any }) => ReactNode> = {
   'evidence-cards': EvidenceCards,
   timeline: Timeline,
   tradeoff: Tradeoff,
+  'draw-your-guess': DrawYourGuess,
+  'scale-ladder': ScaleLadder,
+  'base-rate-box': BaseRateBox,
+  'feedback-loop-stepper': FeedbackLoopStepper,
+  'distribution-vs-anecdote': DistributionVsAnecdote,
+  'rank-the-list': RankTheList,
+  'odds-calibrator': OddsCalibrator,
+  'compounding-clock': CompoundingClock,
+  'survivorship-filter': SurvivorshipFilter,
+  'steelman-duel': SteelmanDuel,
+  'anatomy-labeler': AnatomyLabeler,
+  'counterfactual-fork': CounterfactualFork,
+  'budget-allocator': BudgetAllocator,
+  'threshold-hunt': ThresholdHunt,
 }
 
 const STANDING_PROVENANCE = 'from model knowledge — figures approximate'
