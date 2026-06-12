@@ -1,0 +1,189 @@
+// Worldview v2 — data model (TDD §8).
+// SQLite for zero-config clone-and-run; swap `provider` to postgresql when hosted.
+// Fields beyond the §8 sketch are additive (chain/session scoping, synthesis capture)
+// and documented in BUILD_NOTES.md.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id
+  createdAt DateTime @default(now())
+  model     UserModel?
+  maps      Map[]
+  sessions  Session[]
+}
+
+// §6.3 user-model schema lives in `data` (JSON). One row per user, Profiler-written.
+model UserModel {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Json
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model Map {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  heldQuestion String
+  posture      String
+  // verbatim one-liner: onboarding-stated (challenge) or Reader-inferred (any posture; G-23)
+  startingPosition String?
+  // latest synthesis answer, verbatim — "Where you stand" on the map header
+  currentView  String?
+  // Profiler-written at session end; injected as <resume> on return-session turn 1
+  resumeSummary String?
+  createdAt    DateTime @default(now())
+  lastVisitedAt DateTime @default(now())
+  nodes        MapNode[]
+  loops        Loop[]
+  viewSnapshots ViewSnapshot[]
+  sessions     Session[]
+
+  @@index([userId])
+}
+
+// Dated history of synthesis answers — the view's trail (§5.7).
+model ViewSnapshot {
+  id        String   @id @default(cuid())
+  mapId     String
+  map       Map      @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  content   String
+  // additive: which session captured this snapshot (used for synthesis inheritance)
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  @@index([mapId])
+}
+
+model MapNode {
+  id          String   @id @default(cuid())
+  mapId       String
+  map         Map      @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  parentId    String?
+  depth       Int      @default(0)
+  title       String
+  summary     String
+  hookQuestion String
+  status      String   // "frontier" | "current" | "visited" | "settled"
+  createdAt   DateTime @default(now())
+  loops       Loop[]
+  artifacts   Artifact[]
+
+  @@index([mapId])
+}
+
+model Loop {
+  id          String   @id @default(cuid())
+  mapId       String
+  map         Map      @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  nodeId      String
+  node        MapNode  @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  question    String
+  chainedFromLoopId String?  // set at creation if within 2 turns of a reader-justClosed (§6.4)
+  positionShift String?      // "thought X → now thinks Y"; Reader-written at close on held-belief maps
+  closedBy    String?        // "reader" | "user" (soft-close); null while open
+  openedBy    String?        // "user_click" | "director_branch" | "reader_drift" (§6.4, G-21)
+  lastTouchedAt DateTime?    // stamped whenever proximity is written; drives stale-glow dimming (§9)
+  openedAt    DateTime @default(now())
+  closedAt    DateTime?
+  proximity   Float    @default(0)
+  // additive: chain window + session-scoped rollups (G-01/G-02/G-14)
+  openedInSessionId String?
+  openedAtTurn      Int?
+  closedInSessionId String?
+  closedAtTurn      Int?
+
+  @@index([mapId])
+  @@index([nodeId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mapId     String
+  map       Map      @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+  synthesisFired         Boolean @default(false)  // synthesis beat used this session (§5 step 5)
+  lastDirectiveSynthesis Boolean @default(false)  // previous turn's directive carried the synthesis note
+  synthesisCaptured      Boolean @default(false)  // additive: a synthesis answer was captured this session (G-07)
+  costLocked Boolean @default(false)              // $2.00 ceiling hit; client disables input (§13)
+  isReturn   Boolean @default(false)              // additive: created via return/idle (injects <resume>)
+  viaShelf   Boolean @default(false)              // additive: shelf return vs typed-after-idle (G-17)
+  activeSeconds Int   @default(0)
+  loopsClosed   Int   @default(0)
+  loopsChained  Int   @default(0)
+  loopsDangling Int   @default(0)
+  costUsd       Float @default(0)
+  messages   Message[]
+  decisions  DirectorDecision[]
+  artifacts  Artifact[]
+  events     Event[]
+
+  @@index([userId])
+  @@index([mapId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+}
+
+model DirectorDecision {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  turn      Int      // count of user messages at decision time (G-05)
+  signals   Json
+  tools     Json
+  rationale String
+  directive String   // the rendered <director_instruction> actually sent to the Tutor
+  outcome   Json?    // backfilled next turn (G-04); last decision of a session stays null
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+}
+
+model Artifact {
+  id           String   @id @default(cuid())
+  nodeId       String
+  node         MapNode  @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  sessionId    String
+  session      Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  templateId   String
+  props        Json
+  loopQuestion String
+  status       String   // "generating" | "ready" | "opened" | "completed"
+  createdAt    DateTime @default(now())
+
+  @@index([nodeId])
+  @@index([sessionId])
+}
+
+model Event {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type      String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([type])
+}
